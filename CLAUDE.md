@@ -148,9 +148,24 @@ CLAUDE が勝手に決めず、必ず確認すること。
 - LED 配置データは Blender 側スクリプトと共有する (CSV か JSON で頂点座標をやり取り)。
 
 ### 4.3 Firmware (ESP32 系)
+
 - WS2812 駆動 + Wi-Fi/BLE 経由のフレーム供給。具体型番は未確定 (Q2)。
 
-### 4.4 リポジトリ規約 / Repository conventions
+### 4.4 Python 環境 / Python environment (uv)
+
+- **パッケージマネージャ: [uv](https://docs.astral.sh/uv/)** (pip / poetry / conda は使わない)。
+- Python バージョン: **3.11 pinned** (`.python-version`)。
+- ルート単一プロジェクト構成 — `shell-cad/` と `fpc-kicad/scripts/` 両方が同じ `.venv` を共有。
+- 主要コマンド:
+  - 依存追加: `uv add <pkg>` (例: `uv add numpy bpy`)
+  - 開発用追加: `uv add --dev <pkg>` (例: `uv add --dev pytest`)
+  - スクリプト実行: `uv run python shell-cad/scripts/foo.py`
+  - 環境再構築: `uv sync`
+- 追跡対象: `pyproject.toml`, `uv.lock`, `.python-version`
+- 無視: `.venv/` (gitignore 済)
+- **例外**: KiCad の `pcbnew` モジュールは KiCad 同梱 Python に紐づくため uv 環境外。KiCad 内部から呼ぶスクリプトは KiCad の Python で実行する。
+
+### 4.5 リポジトリ規約 / Repository conventions
 
 - プロジェクトルート: `/Users/katano/work/FPC-isolation-sphere/`
 - リモート: `https://github.com/sastles-com/FPC-isolation-sphere` (private)
