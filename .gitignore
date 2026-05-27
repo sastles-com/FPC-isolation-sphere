@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Claude Code (local-only)
+.claude/settings.local.json
+.sixth/
+
+# Heavy media (kept locally, referenced from CLAUDE.md)
+Ve1T-xWixeVSnM0x.mp4
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# Common build / cache
+__pycache__/
+*.pyc
+.venv/
+node_modules/
