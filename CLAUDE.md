@@ -261,6 +261,7 @@ CLAUDE.md は索引役として下表だけを維持する。
 | # | Slug | Doc | Status | Summary |
 | --- | --- | --- | --- | --- |
 | 00 | concept | [`docs/10pieces-isolation-sphere-concept.md`](docs/10pieces-isolation-sphere-concept.md) | reference | 全議論ログ (一次資料、編集不可) |
+| 01 | shell-cad | [`docs/01-shell-cad.md`](docs/01-shell-cad.md) | draft | 外殻 (T=81 ゴールドバーグ多面体) の Blender モデリングと LED 配置データ生成 |
 | — | — | — | — | _(未作成。下記 §8.2 のルールで増やしていく)_ |
 
 予定している小プロジェクト (まだファイル未作成):
