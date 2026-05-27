@@ -70,6 +70,10 @@
   - 3 回対称軸が Z にくる仕様で§6 違反するため非採用。Blender addon の挙動確認用に保持
 - [`../shell-cad/scripts/compare_obj.py`](../shell-cad/scripts/compare_obj.py) — 2 つの OBJ を不変量 (頂点数 / エッジ長分布 / 面積 / 赤道クリアランス) で比較
   - 実行: `uv run python shell-cad/scripts/compare_obj.py A.obj B.obj`
-- [`../shell-cad/scripts/blender_visualize_t81.py`](../shell-cad/scripts/blender_visualize_t81.py) — **Step 1**: OBJ を Blender に取り込み、12 pent (青) / 710 通常 hex (灰) / 90 赤道またぎ hex (赤) で色分け、Z=0 wireframe 平面を追加、`.blend` 保存
+- [`../shell-cad/scripts/blender_visualize_t81.py`](../shell-cad/scripts/blender_visualize_t81.py) — **Step 1a**: 面種別で色分け (青=12 pent / 灰=710 通常 hex / 赤=90 赤道またぎ hex) + Z=0 wireframe
   - 実行: `/Applications/Blender.app/Contents/MacOS/Blender --background --python shell-cad/scripts/blender_visualize_t81.py`
-  - 出力: `shell-cad/output/goldberg_t81.blend` (gitignore)。Blender GUI で開いて目視確認
+  - 出力: `shell-cad/output/goldberg_t81.blend` (gitignore)
+- [`../shell-cad/scripts/blender_visualize_cassettes.py`](../shell-cad/scripts/blender_visualize_cassettes.py) — **Step 1b**: カセット (10 ハーフゴア) で色分け。色相=経度スライス×5, 明暗=N/S 半球。極の 2 pentagon は白で別カテゴリ
+  - 実行: `/Applications/Blender.app/Contents/MacOS/Blender --background --python shell-cad/scripts/blender_visualize_cassettes.py`
+  - 出力: `shell-cad/output/goldberg_t81_cassettes.blend` (gitignore)
+  - 経度スライス境界: θ = 18°, 90°, 162°, 234°, 306° (pentagon 中心を避ける配置)
