@@ -151,9 +151,36 @@ CLAUDE が勝手に決めず、必ず確認すること。
 - WS2812 駆動 + Wi-Fi/BLE 経由のフレーム供給。具体型番は未確定 (Q2)。
 
 ### 4.4 リポジトリ規約 / Repository conventions
-- 現状コードは未配置。プロジェクトルートは `/Users/katano/work/FPC-isolation-sphere/`。
-- 一次資料は `docs/`。今後 `cad/` `firmware/` `hardware/` を切る想定。
-- Git: 現状 **git 管理外** (`Is a git repository: false`)。コードを書き始める前に `git init` を提案するのが望ましい。
+
+- プロジェクトルート: `/Users/katano/work/FPC-isolation-sphere/`
+- リモート: `https://github.com/sastles-com/FPC-isolation-sphere` (private)
+- 編集ごとに commit & push する運用。重いファイル (動画 / 大容量バイナリ) は push 前に必ず確認。
+
+#### フォルダ構成 / Folder layout
+
+```text
+/
+├── CLAUDE.md                    索引 + ハード規則 (このファイル)
+├── README.md                    GitHub ランディング (TODO)
+├── docs/                        設計 spec (WHAT / WHY) — §8 索引参照
+│   ├── 10pieces-isolation-sphere-concept.md   一次資料
+│   ├── 01-shell-cad.md          (予定)
+│   └── 02-fpc-kicad.md          (予定)
+├── shell-cad/                   Project 1: Blender Python
+│   ├── scripts/                 .py スクリプト
+│   ├── blend/                   .blend ファイル
+│   └── output/                  生成 STL (gitignore)
+├── fpc-kicad/                   Project 2: KiCad
+│   ├── lib/                     シンボル / フットプリント
+│   ├── scripts/                 KiCad Python API ヘルパー
+│   └── fab/                     生成 Gerber (gitignore)
+└── shared/                      ★ プロジェクト間インターフェース
+    └── led_positions.csv        Blender が producer、KiCad が consumer
+```
+
+- **設計知識は `docs/NN-<slug>.md` に集約**。各サブプロジェクトフォルダに CLAUDE.md は置かない (§8.2 重複禁止)。
+- `shared/` のファイル仕様 (列定義 / 座標系 / ID 規約) は **producer 側の doc** に書く。
+- build artifact (`shell-cad/output/`, `fpc-kicad/fab/`) は中身を gitignore、フォルダ自体は `.gitignore` ファイルで保持。
 </workflow>
 
 ---
