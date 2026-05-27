@@ -35,16 +35,23 @@
   - **Blender 同梱 "Add Mesh: Geodesic Domes" addon は可** だが、デフォルトで **3 回対称軸を Z 軸**に置く → 赤道に face center が乗り §6 ハード規則違反。
     回転補正を入れるくらいなら自前 numpy 実装の方が制御しやすいので不採用
 - **出力**: [`../shell-cad/output/goldberg_t81.obj`](../shell-cad/output/) (gitignore 対象)
+- **LED 総数**: 810 = 10 五角形 + 800 六角形 (極の 2 五角形を除外)
+  - 上 ring 5 + 下 ring 5 + 各カセット = 1 pentagon + 80 hexagon = 81 LED/cassette ✓ きれいに割れる
+  - 極穴 (北/南) は南極ねじボス・配線スリットに転用予定
+- **ラッパ穴形状の基本形**: 角錐台 (pyramidal frustum)
+  - 底面 = hex/pent 面そのまま (中央 LED 軸 = 面の法線)
+  - 深さ ≤ 1.5 mm (内接円半径 / tan(60°) から逆算)、残り殻厚 ~3.5 mm
+  - Bevel/エッジ処理は step-by-step で後段 (Boolean → bevel modifier or post-edge bevel)
+- **Boolean 手段**: Blender (Exact solver)。**812 個の錐を 1 メッシュに union してから 1 回の diff で殻に開ける** 戦略 (個別 Boolean は破綻リスクが累積)
+  - 破綻時のフォールバック: CadQuery (OpenCASCADE)、`uv add cadquery` で導入
 
 ## Open questions / 未確定事項
 
-- Q1: **赤道部の六角形 90 個の処理方式** — Z=0 でブール切断後、トリムされた多角形 (五角形/四角形相当) のLED 配置はどうする? 中心を再計算 / LED を北 or 南へ寄せて捨てる / その他
-- Q2: **ラッパ穴の幾何** — 視野角 120° を満たす円錐の高さ / 底面径 / 軸の向き (LED 発光面の法線 = 面中心の sphere normal でよいか)
-- Q3: **Boolean 抜きを Blender でやるか OpenSCAD/CadQuery でやるか** — Blender Boolean は石筋が出やすい。事前に check したい
+- Q1: **赤道部の六角形 90 個の処理方式** — 4 案あり (A: 元中心固定でトリム / B: トリム後重心 / C: 90 個捨て / D: 上下 2 分割)。**Blender で目視してから決める** ([`../shell-cad/output/goldberg_t81.blend`](../shell-cad/output/) で赤強調済)
+- Q2 細目: **ラッパ穴の bevel 量、角錐 → 円錐への滑らかな fillet を入れるか**
 - Q4: **LED 座標 CSV のスキーマ** (`shared/led_positions.csv`):
   - 必須項目候補: `face_id`, `cassette_id (0..9)`, `serial_index (0..809)`, `x, y, z` (球面), `normal_x, normal_y, normal_z`, `hemisphere (N/S)`, `face_kind (pent/hex)`
   - V1 の `tri_hexagon_centroids.csv` 相当を拡張する形になる
-- Q5: 12 個の五角形のうち、極の 2 個 (北極/南極) は LED 配置するか? (810 = 812 - 2 なので両極を捨てる前提が CLAUDE.md §1 と整合する)
 
 ## References
 
@@ -63,3 +70,6 @@
   - 3 回対称軸が Z にくる仕様で§6 違反するため非採用。Blender addon の挙動確認用に保持
 - [`../shell-cad/scripts/compare_obj.py`](../shell-cad/scripts/compare_obj.py) — 2 つの OBJ を不変量 (頂点数 / エッジ長分布 / 面積 / 赤道クリアランス) で比較
   - 実行: `uv run python shell-cad/scripts/compare_obj.py A.obj B.obj`
+- [`../shell-cad/scripts/blender_visualize_t81.py`](../shell-cad/scripts/blender_visualize_t81.py) — **Step 1**: OBJ を Blender に取り込み、12 pent (青) / 710 通常 hex (灰) / 90 赤道またぎ hex (赤) で色分け、Z=0 wireframe 平面を追加、`.blend` 保存
+  - 実行: `/Applications/Blender.app/Contents/MacOS/Blender --background --python shell-cad/scripts/blender_visualize_t81.py`
+  - 出力: `shell-cad/output/goldberg_t81.blend` (gitignore)。Blender GUI で開いて目視確認
