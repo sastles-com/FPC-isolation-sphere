@@ -276,7 +276,7 @@ CLAUDE.md は索引役として下表だけを維持する。
 | # | Slug | Doc | Status | Summary |
 | --- | --- | --- | --- | --- |
 | 00 | concept | [`docs/10pieces-isolation-sphere-concept.md`](docs/10pieces-isolation-sphere-concept.md) | reference | 全議論ログ (一次資料、編集不可) |
-| 01 | shell-cad | [`docs/01-shell-cad.md`](docs/01-shell-cad.md) | draft | 外殻 (T=81 ゴールドバーグ多面体) の Blender モデリングと LED 配置データ生成 |
+| 01 | shell-cad | [`docs/01-shell-cad.md`](docs/01-shell-cad.md) | wip | 外殻 (T=81 ゴールドバーグ多面体) の Blender モデリングと LED 配置データ生成 |
 | 02 | fpc-kicad | [`docs/02-fpc-kicad.md`](docs/02-fpc-kicad.md) | draft | shell-cad 座標から KiCad で FPC を生成 (10 カセット共通 1 種) |
 | — | — | — | — | _(未作成。下記 §8.2 のルールで増やしていく)_ |
 
