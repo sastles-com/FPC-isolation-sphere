@@ -31,6 +31,9 @@
 - **生成手法**: 純 Python (`numpy` のみ) で頂点/面リストを構築 → OBJ 出力 → Blender 手動 import
   - bpy 依存にしないことで CI/単体テストが効く
   - 段階: icosahedron → geodesic subdivide (m=9) → dual
+  - **Blender 標準 Icosphere は不可** — subdivisions=N は m=2^(N-1) のみ生成可 (1,2,4,8,16...)。m=9 は power-of-2 でない
+  - **Blender 同梱 "Add Mesh: Geodesic Domes" addon は可** だが、デフォルトで **3 回対称軸を Z 軸**に置く → 赤道に face center が乗り §6 ハード規則違反。
+    回転補正を入れるくらいなら自前 numpy 実装の方が制御しやすいので不採用
 - **出力**: [`../shell-cad/output/goldberg_t81.obj`](../shell-cad/output/) (gitignore 対象)
 
 ## Open questions / 未確定事項
@@ -51,7 +54,12 @@
 
 ### スクリプト
 
-- [`../shell-cad/scripts/goldberg.py`](../shell-cad/scripts/goldberg.py) — G(m, 0) generator (pure numpy)
+- [`../shell-cad/scripts/goldberg.py`](../shell-cad/scripts/goldberg.py) — **本採用** G(m, 0) generator (pure numpy)
   - 実行: `uv run python shell-cad/scripts/goldberg.py [-m 9] [-r 50]`
   - 出力 OBJ は Blender > File > Import > Wavefront (.obj) で開ける
-  - もしくは CLI: `blender shell-cad/output/goldberg_t81.obj`
+  - もしくは CLI: `/Applications/Blender.app/Contents/MacOS/Blender shell-cad/output/goldberg_t81.obj`
+- [`../shell-cad/scripts/blender_goldberg.py`](../shell-cad/scripts/blender_goldberg.py) — **参考用** Blender addon (Geodesic Domes) 版
+  - 実行: `/Applications/Blender.app/Contents/MacOS/Blender --background --python shell-cad/scripts/blender_goldberg.py`
+  - 3 回対称軸が Z にくる仕様で§6 違反するため非採用。Blender addon の挙動確認用に保持
+- [`../shell-cad/scripts/compare_obj.py`](../shell-cad/scripts/compare_obj.py) — 2 つの OBJ を不変量 (頂点数 / エッジ長分布 / 面積 / 赤道クリアランス) で比較
+  - 実行: `uv run python shell-cad/scripts/compare_obj.py A.obj B.obj`
