@@ -1,3 +1,9 @@
+# FTP credentials (NEVER commit — use .ftp_credentials.example as template)
+.ftp_credentials
+
+# Generated web artifacts (STL viewers, uploaded files)
+web/output/
+
 # macOS
 .DS_Store
 

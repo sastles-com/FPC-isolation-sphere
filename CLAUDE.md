@@ -430,3 +430,77 @@ CLAUDE.md は索引役として下表だけを維持する。
 - サブ doc 範囲の詳細仕様を **CLAUDE.md に追記しようとしない** (索引と確定要約だけがここに来る)。
 - 議論の結果サブ doc 同士の整合性が崩れた場合は、影響範囲を `<impact>` として報告してから修正する。
 </behavior>
+
+---
+
+## 9. Web Publishing / 成果物の Web 公開
+
+<web_publishing>
+
+### 9.1 Lolipop FTP アップロード
+
+**STL / HTML ビューアなどの成果物は Lolipop サーバーへ FTP アップロードして公開する。**
+
+#### FTP 接続情報
+
+認証情報は **`.ftp_credentials`** (gitignore 済) に格納する。
+**NEVER パスワードを CLAUDE.md や任意の追跡ファイルに直書きしない。**
+
+```bash
+# .ftp_credentials (gitignore済・コミット禁止)
+FTP_HOST=ftp.tajmahal.mond.jp
+FTP_USER=mond.jp-tajmahal
+FTP_PASS=<実際のパスワード>      # ← ここだけ非公開
+FTP_PROJECT_ROOT=isolation-sphere
+FTP_BASE_URL=http://tajmahal.mond.jp/isolation-sphere
+```
+
+テンプレート: `.ftp_credentials.example` (パスワード空欄でコミット済)
+
+#### アップロード手順
+
+```bash
+# 全ファイル一括
+bash shell-cad/scripts/upload_to_lolipop.sh
+
+# 1ファイル指定
+bash shell-cad/scripts/upload_to_lolipop.sh web/output/foo_viewer.html
+```
+
+#### フォルダ構成
+
+```text
+web/
+└── output/              ← gitignore
+    ├── *.html           ← STL ビューア HTML
+    └── *.stl            ← STL (HTML と同ディレクトリに置く)
+```
+
+#### 公開 URL
+
+- トップ: `http://tajmahal.mond.jp/isolation-sphere/`
+- STL ビューア: `http://tajmahal.mond.jp/isolation-sphere/web/output/<name>_viewer.html`
+
+### 9.2 STL ビューア HTML 生成
+
+Three.js (CDN) を使った対話型 STL ビューア HTML を自動生成できる。
+
+```bash
+# 単一 STL → HTML
+uv run python shell-cad/scripts/generate_stl_viewer.py shell-cad/output/foo.stl
+
+# バッチ
+uv run python shell-cad/scripts/generate_stl_viewer.py shell-cad/output/*.stl
+```
+
+- STL と HTML は同じフォルダに出力される (相対 URL で読み込む)
+- Drag: 回転 / Scroll: ズーム / Right-drag: パン
+- ポリゴン数・バウンディングボックス寸法を HUD 表示
+
+### 9.3 新しい成果物を追加する場合
+
+1. STL または OBJ を生成する
+2. `generate_stl_viewer.py` でビューア HTML を生成
+3. `upload_to_lolipop.sh` でアップロード
+
+</web_publishing>
