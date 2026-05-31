@@ -45,13 +45,15 @@ def _normalize(v: np.ndarray) -> np.ndarray:
 # ---- pyramid construction ----------------------------------------------------
 
 def _pyramid_plain(B: np.ndarray, apex: np.ndarray) -> tuple[np.ndarray, list[list[int]]]:
-    """No-bevel pyramid: 7 verts, 10 triangles."""
+    """No-bevel pyramid: 7 verts, 10 triangles.
+    Winding: CCW from outside → outward normals → positive manifold volume.
+    """
     V = np.vstack([B, apex])  # apex = index 6
     tris: list[list[int]] = []
     for i in range(6):
-        tris.append([i, (i + 1) % 6, 6])          # 6 side triangles
+        tris.append([(i + 1) % 6, i, 6])          # 6 side triangles (outward winding)
     for i in range(1, 5):
-        tris.append([0, i + 1, i])                 # base hexagon fan
+        tris.append([0, i, i + 1])                 # base hexagon fan (outward winding)
     return V, tris
 
 
@@ -85,24 +87,24 @@ def _pyramid_beveled(B: np.ndarray, apex: np.ndarray, d: float) -> tuple[np.ndar
     for i in range(1, 5):
         tris.append([ip(0), ip(i+1), ip(i)])
 
-    # Side panels: original [B[i], B[i+1], A] → 6-gon, fan from ba[i]
+    # Side panels: outward winding (reversed face order)
     for i in range(6):
         j = i + 1
-        face = [ib(i), ir(i), il(j), ib(j), ip(j), ip(i)]
+        face = [ip(i), ip(j), ib(j), il(j), ir(i), ib(i)]
         for k in range(1, 5):
             tris.append([face[0], face[k], face[k+1]])
 
-    # Base vertex bevel caps — 6 corner triangles
+    # Base vertex bevel caps — outward winding
     for i in range(6):
-        tris.append([il(i), ir(i), ib(i)])
+        tris.append([il(i), ib(i), ir(i)])
 
-    # Inset base 12-gon: [br[0], bl[1], br[1], bl[2], ..., br[5], bl[0]]
+    # Inset base 12-gon — outward winding (away from origin)
     base12 = []
     for i in range(6):
         base12.append(ir(i))
         base12.append(il(i+1))
     for i in range(1, 11):
-        tris.append([base12[0], base12[i+1], base12[i]])
+        tris.append([base12[0], base12[i], base12[i+1]])
 
     return V, tris
 
