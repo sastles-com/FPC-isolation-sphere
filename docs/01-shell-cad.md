@@ -77,6 +77,34 @@
   - 実行: `/Applications/Blender.app/Contents/MacOS/Blender --background --python shell-cad/scripts/blender_visualize_cassettes.py`
   - 出力: `shell-cad/output/goldberg_t81_cassettes.blend` (gitignore)
   - 経度スライス境界: θ = 18°, 90°, 162°, 234°, 306° (pentagon 中心を避ける配置)
+- [`../shell-cad/scripts/blender_make_cassettes.py`](../shell-cad/scripts/blender_make_cassettes.py) — **Step 2**: 10 ハーフゴアカセットを Goldberg 面アライメントで切り出し STL 出力 + 面別の半径方向シリンダー (将来の Boolean Diff cutter 用)
+  - 実行: `/Applications/Blender.app/Contents/MacOS/Blender --background --python shell-cad/scripts/blender_make_cassettes.py`
+  - 出力 (gitignore):
+    - `shell-cad/output/cassette_slice{0..4}_{N,S}.stl` — 10 カセット (全て同形: 394 verts / 231 faces / 81 source Goldberg faces)
+    - `shell-cad/output/pent_axes.stl` — 12 ペンタゴン半径方向シリンダー (Φ 2.5 mm、原点→pent 重心、長さ ~49.92 mm、792 verts / 1152 faces)
+    - `shell-cad/output/hex_axes.stl` — 800 ヘキサゴン半径方向シリンダー (Φ 3 mm、原点→hex 重心、52800 verts / 76800 faces)
+    - `shell-cad/output/shell_cassettes.blend` — Blender シーン全体 (カセット + pent + hex を 1 シーンに統合)
+  - **方針**: 各 Goldberg 面を centroid で 10 カセット + 2 極 pent に分類し、各カセットに割り当てられた面集合から **直接** 閉じた多面体を組み立てる ([CLAUDE.md §2.6](../CLAUDE.md#26-equator-connection--赤道接続) 「外側はゴールドバーグの辺に沿ったジグザグ」を厳密に実現)
+  - 構成:
+    - 外側 = 割り当てられた Goldberg 面 (r=50, 元の CCW winding)
+    - 内側 = 同じ面集合の頂点を radial scaling `* (R_INNER/R_OUTER) = * 0.9` で r=45 に投影 (連結性は外側と同一の Goldberg トポロジー)
+    - rim quad = カセット境界エッジ (片側にしか面が無いエッジ) ごとに 1 枚、outer→outer→inner→inner の四辺形で側壁化
+  - **特徴**:
+    - Boolean / Solidify 不要 → exact watertight (mesh.validate でクリーン)、出力は数秒
+    - 隣接カセット同士の境界頂点が完全一致 → mate がぴったり (zero gap)
+    - 5 回回転対称 + N/S 鏡像対称が出力 mesh stats に出る (全カセット同じ verts/faces 数)
+  - 分類規則は [`blender_visualize_cassettes.py`](../shell-cad/scripts/blender_visualize_cassettes.py) の `classify()` と完全一致 → 可視化 `goldberg_t81_cassettes.blend` の色分けと 1:1 対応
+  - **2 極 pent (極先端ペンタゴン × 2)** は意図的にカセットから除外 → 極 PCB の貫通開口 (案 S4) として残る
+  - **シリンダー (`pent_axes` / `hex_axes`) について**:
+    - いずれも **原点 (0,0,0) から面 (pent/hex) の 3D 重心** までの直線シリンダー (キャップ付き watertight)
+    - Pent Φ2.5: M2.5 クランプねじ径と一致 (案 K_new、[CLAUDE.md §2.8](../CLAUDE.md#28-pole-assembly--球体コア--短-pillar--2--極-pcb--キャップ-案-s4--案-k_new))
+    - Hex Φ3: WS2812-2020 (2×2 mm) 用のラッパ穴 (直線版) として後で Boolean Diff cutter に転用可能。最終的には円錐 (ラッパ穴) に置き換える予定 ([CLAUDE.md §2.3](../CLAUDE.md#23-led-window--ラッパ穴-flared-aperture--円錐窓構造))
+    - 非極 pent 重心 = 緯度 ±26.57° (T=81 G(9,0) の icosahedral 対称位置と完全一致) → コア表面 10 サテライト・ボスの座標と整合確認済
+  - **TODO** (まだ未実装、後続ステップ):
+    - LED ラッパ穴 (円錐版、120° 開き) — 現在の hex 直線シリンダーを円錐 cutter に置き換え、Boolean Diff で外殻に窓を掘る
+    - 非極 pent 位置の M2.5 クランプねじ穴 (Φ2.7 + Φ4.7 沈み込み座ぐり) — 現在の Φ2.5 シリンダーを clearance に直して Boolean Diff
+    - 内側のポゴピンボックス (Z=0 フラット底面の突起) — `<equator>` §2.6 で言及される「ボックス底面 Z=0 水平フラット」はこの突起のみで、シェル全体の内側は radial Goldberg のまま
+    - FPC 位置決めピン (外殻裏面に小突起)
 
 ---
 
@@ -190,7 +218,7 @@
 | 列名 | 値 | 説明 |
 | --- | --- | --- |
 | `board_kind` | `fpc` / `polar_pcb_n` / `polar_pcb_s` | LED の物理基板を区別 |
-| `cassette_id` | 0..9 / -1 | 共通 FPC なら 0..9、極専用 PCB なら -1 (or N=10, S=11) |
+| `cassette_id` | 0..9 / 10 / 11 | 共通 FPC: 0..9 / 北極 PCB: 10 / 南極 PCB: 11 (負値を使わず整数のみで完結) |
 | `is_screw_hole` | bool | **非極ペンタゴン位置のみ true** (M2.5 クランプねじ穴、LED 載らず) |
 | 他列 | 既存通り | `face_id`, `serial_index`, `x, y, z`, `normal_*`, `hemisphere`, `face_kind` |
 

@@ -41,7 +41,7 @@ This file is the working context Claude should load before assisting on this pro
 
 <geometry>
 - 多面体: **ゴールドバーグ多面体 T=81** (Goldberg polyhedron, class T=81)
-- 外径 φ100 mm / 内径 φ95 mm / 殻厚 **5 mm**
+- 外径 φ100 mm / 内径 φ90 mm / 殻厚 **5 mm** (radial)
 - 総ピクセル数: ~810 (LED は **赤道 Z=0 上には配置しない**。赤道を挟んで北/南に逃がす千鳥配置)
 - LEDs are deliberately offset from the equator so the equator slice is reserved for pogo-pin contacts only.
 </geometry>
@@ -75,7 +75,8 @@ This file is the working context Claude should load before assisting on this pro
 - 各カセット FPC は **79 LED** (= 1 ペンタゴン穴を除いた hex のみ、極先端 1 LED は極 PCB へ移管)。
   - 各カセットに **非極ペンタゴン 1 個** が含まれ、その位置は LED ではなく **M2.5 クランプねじの貫通穴** になる ([§2.8](#28-pole-assembly--球体コア--短-pillar--2--極-pcb--キャップ-案-s4--案-k_new) 参照)。
 - **Common skeleton FPC × 10 + 2 dedicated polar rigid PCBs. Per-cassette LED count: 79 (1 pentagon position becomes M2.5 screw through-hole). Polar PCB LED count: 5 each.**
-- **LED 総数: 800** (= 共通 FPC 790 + 極 PCB 10 + 非極 pent 10 個は LED 載らずねじ穴に転用 + 極 pent 2 個は LED 載らず構造領域)
+- **LED 総数: 800** = 共通 FPC hex 790 (= 79 × 10) + 極 PCB hex 10 (= 5 × 2)
+  - LED 非搭載のペンタゴン: 非極 pent 10 個 (M2.5 クランプねじ穴に転用) + 極 pent 2 個 (極 PCB 構造領域)
 - データチェーン: **6 ストリップ** = 5 縦縞 (各 158 LED = 79 × 2) + 1 極 (10 LED = 5 × 2、コア内ワイヤで N PCB ⇔ S PCB を接続)
 - 極専用 PCB の詳細は [`docs/02-fpc-kicad.md`](docs/02-fpc-kicad.md) 参照。
 </fpc>
