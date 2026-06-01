@@ -132,6 +132,61 @@ CYL_SECTS   = 16
 
 ---
 
+## 2026-06-01
+
+### カセット生成パイプライン拡張 (`blender_make_cassettes.py`)
+
+**作業内容**
+- 10 カセットを `Cassettes` コレクションに集約
+- 800 六角錐(ラッパ穴ウェル)を `HexPyramids` オブジェクトとして追加
+- 全 12 ペンタゴンを別オブジェクト化し `Pentagons` コレクションへ(非極10 + 極2、カセットは無変更で重ねる)
+- **スクリプト自己埋め込み規約**: `.blend` の Scripting タブに CORE + `script_*.py` を自動 glob 埋め込み(`script_<名前>.py` を置くだけで自動収録)
+
+### 新規スクリプト
+
+- `blender_face_cylinder.py` — 指定 pent/hex 面へ原点から放射する円柱(object origin = (0,0,0))
+- `script_pent_cylinders.py` — 全ペンタゴン位置に個別円柱(h=1, Φ2.5, 16分割)
+- `script_place_on_pentagons.py` — 北極のアクティブオブジェクトを最短弧回転で全12ペンタゴンへ複製配置
+
+### マザーリング + カセット裏面構造の設計確定
+
+**作業内容**
+- `blender_make_cassettes.py` に **MotherRing**(赤道ドーナツ PCB、z=0、t=2.0mm、Φ88)を追加
+- 裏面構造の用語・方針を doc 化(`inner_deck` / `back_gore` / `ring_claw` / `anchor_post`)
+
+**判断**
+- FPC 固定 = **ハイブリッド**(赤道近傍 back_gore 機械面圧 + 残りアセテートテープ)
+- inner_deck / back_gore は **FPC 後付けのため別パーツ**(anchor_post にスナップ + 反力点ネジ)
+- マザーリング厚 = **2.0mm**(1.6mm 比 剛性 ~1.95倍、ポゴ荷重でたわまない)
+- FPC 実装面: **表 WS2812C-2020 / 裏 0603 チップコンデンサ** → back_gore は 0603 逃がし必須
+
+---
+
+## 2026-06-02
+
+### FPC データチェーン + 展開図 (`generate_fpc_chain.py`)
+
+**作業内容**
+- 上流から取り込んだチェーン生成器を **polyhedral unfold(多面体展開)** に刷新
+  - **一筆書き**: Warnsdorff 順 + バックトラック DFS で start/end 指定の Hamiltonian path を確実探索
+  - 既定端点: **DIN = 赤道中央 hex / DOUT = その面隣接**(中央・隣接でポゴ引き出しを集約)
+  - **展開**: カセット内側は多面体(平らな hex 面)なので、チェーンに沿って共有辺をヒンジに 180° 展開 → **歪みゼロ**(実測 max 0.27%)
+  - **2段ワークフロー**: Warnsdorff 素案 → `legend` CSV 手修正 →`--legend` で再展開(Phase 2 で Blender モーダル・クリック順エディタを予定)
+  - **骨組み FPC 外形**: island 円(r=2.25mm)+ チェーン連結帯(w=3.0mm)→ PNG + KiCad 用 SVG 出力
+
+**判断**
+- 投影法(equirect/sinusoidal)は**不採用** — 滑らかな球前提。多面体なら投影せず**完全展開(歪みゼロ)**が可能(ユーザー指摘)
+- 曲率は除外された pentagon に集中するため、hex のみの半ゴアはほぼ完全平面に展開できる
+- inner_deck パッド数 = **4 (GND/5V/DIN/DOUT)** に確定(DIN/DOUT 両方が赤道側に出るため)
+
+### リポジトリ整理
+
+- 再生成成果物の出力先を **トップレベル `output/`(gitignore)** に新設・移設(`shell-cad/output` はシェル専用、`shared/` は手編集設計データ)
+- 設計画像を `docs/images/` に追加(マザーリング想定形状 / V1 骨組み FPC 試作実物)
+- Q 番号衝突を解消(fpc チェーン系を Q62〜)、CLAUDE.md §2.4/2.5/2.6 と各 doc を整合
+
+---
+
 ## 今後の作業 / Next Steps
 
 - [ ] アパーチャパラメータのファインチューニング（穴径・深さ・面取り）

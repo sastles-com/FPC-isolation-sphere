@@ -279,13 +279,16 @@ CLAUDE が勝手に決めず、必ず確認すること。
 │   ├── lib/                     シンボル / フットプリント
 │   ├── scripts/                 KiCad Python API ヘルパー
 │   └── fab/                     生成 Gerber (gitignore)
-└── shared/                      ★ プロジェクト間インターフェース
-    └── led_positions.csv        Blender が producer、KiCad が consumer
+├── shared/                      ★ プロジェクト間インターフェース
+│   └── led_positions.csv        Blender が producer、KiCad が consumer (手編集の設計データはここ)
+└── output/                      ★ トップレベル成果物 (gitignore)
+    └── fpc_*.{csv,png,svg}       generate_fpc_chain.py 等の再生成可能な出力
 ```
 
 - **設計知識は `docs/NN-<slug>.md` に集約**。各サブプロジェクトフォルダに CLAUDE.md は置かない (§8.2 重複禁止)。
 - `shared/` のファイル仕様 (列定義 / 座標系 / ID 規約) は **producer 側の doc** に書く。
-- build artifact (`shell-cad/output/`, `fpc-kicad/fab/`) は中身を gitignore、フォルダ自体は `.gitignore` ファイルで保持。
+- build artifact (`shell-cad/output/`, `fpc-kicad/fab/`, **トップレベル `output/`**) は中身を gitignore、フォルダ自体は `.gitignore` ファイルで保持。
+  - 複数プロジェクト共通/横断の再生成成果物 (例: FPC チェーン展開図) は **トップレベル `output/`** へ。シェル専用 STL/blend は `shell-cad/output/`。**手編集する設計データ**(legend の確定版など) は `shared/` へ昇格。
 </workflow>
 
 ---
