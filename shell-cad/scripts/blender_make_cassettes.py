@@ -71,6 +71,16 @@ PYRAMID_L_H = 8.0           # mm, inward depth of apex from base centroid
 PYRAMID_BASE_R = None       # None → use R_OUTER (base on outer shell)
 PYRAMID_BEVEL = 0.0         # mm, edge bevel (0 = sharp; ~0.5 for chamfer)
 
+# Mother ring (equator donut PCB, flat gold pads only, mounted on the core).
+# Flat annulus centred on z=0; north pogo pins press its top face, south its
+# bottom face. Thickness 2.0 mm chosen over standard 1.6 mm for ~1.95x bending
+# stiffness (∝ t^3) so distributed pogo load doesn't deflect it (2026-06-01).
+MOTHER_RING_ENABLE = True
+MOTHER_RING_THICKNESS = 2.0   # mm (standard 1.6; 2.0 for pogo-load stiffness)
+MOTHER_RING_OUTER_R = 44.0    # mm, just inside the inner shell (r=45) at equator
+MOTHER_RING_INNER_R = 28.0    # mm, placeholder until core size (Q31) is fixed
+MOTHER_RING_SEGMENTS = 64
+
 # Scripts embedded into the .blend (visible/runnable in the Scripting tab).
 #   - CORE_SCRIPTS   : always embedded so the blend can regenerate itself
 #   - script_*.py    : any file in shell-cad/scripts/ with this prefix is
@@ -296,6 +306,41 @@ def make_combined_pyramids(name: str, pyramids):
     return obj
 
 
+def make_mother_ring(name, outer_r, inner_r, thickness, n_segs, collection=None):
+    """Flat donut PCB centred on z=0 (z = -t/2 .. +t/2), watertight.
+
+    Vertex layout per segment i (base 4*i): outer_bot, inner_bot, outer_top,
+    inner_top. Faces: top + bottom annulus quads, outer + inner side walls.
+    """
+    z0, z1 = -thickness / 2.0, +thickness / 2.0
+    verts = []
+    for i in range(n_segs):
+        ang = 2.0 * math.pi * i / n_segs
+        c, s = math.cos(ang), math.sin(ang)
+        verts.append((outer_r * c, outer_r * s, z0))  # outer_bot 4i
+        verts.append((inner_r * c, inner_r * s, z0))  # inner_bot 4i+1
+        verts.append((outer_r * c, outer_r * s, z1))  # outer_top 4i+2
+        verts.append((inner_r * c, inner_r * s, z1))  # inner_top 4i+3
+
+    faces = []
+    for i in range(n_segs):
+        j = (i + 1) % n_segs
+        ob_i, ib_i, ot_i, it_i = 4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3
+        ob_j, ib_j, ot_j, it_j = 4 * j, 4 * j + 1, 4 * j + 2, 4 * j + 3
+        faces.append([ot_i, ot_j, it_j, it_i])   # top annulus (+Z)
+        faces.append([ob_i, ib_i, ib_j, ob_j])   # bottom annulus (-Z)
+        faces.append([ob_i, ob_j, ot_j, ot_i])   # outer wall
+        faces.append([ib_i, it_i, it_j, ib_j])   # inner wall
+
+    mesh = bpy.data.meshes.new(name + "_mesh")
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    mesh.validate(verbose=False)
+    obj = bpy.data.objects.new(name, mesh)
+    (collection or bpy.context.collection).objects.link(obj)
+    return obj
+
+
 # -----------------------------------------------------------------------------
 # Generate outer/inner Goldberg + classify faces
 # -----------------------------------------------------------------------------
@@ -446,6 +491,27 @@ bpy.context.view_layer.objects.active = pyr_obj
 pyr_out = OUT_DIR / "hex_pyramids.stl"
 bpy.ops.wm.stl_export(filepath=str(pyr_out), export_selected_objects=True)
 print(f"  → wrote {pyr_out.name}")
+
+# -----------------------------------------------------------------------------
+# Mother ring (equator donut PCB)
+# -----------------------------------------------------------------------------
+if MOTHER_RING_ENABLE:
+    print("\n=== Mother ring (equator donut PCB) ===")
+    ring_coll = get_or_create_collection("MotherRing")
+    ring_obj = make_mother_ring("MotherRing", MOTHER_RING_OUTER_R,
+                                MOTHER_RING_INNER_R, MOTHER_RING_THICKNESS,
+                                MOTHER_RING_SEGMENTS, collection=ring_coll)
+    print(f"  donut z=0 ±{MOTHER_RING_THICKNESS/2:.1f}mm  "
+          f"R {MOTHER_RING_INNER_R}–{MOTHER_RING_OUTER_R}mm  "
+          f"t={MOTHER_RING_THICKNESS}mm  segs={MOTHER_RING_SEGMENTS}")
+    print(f"  MotherRing mesh: {len(ring_obj.data.vertices)} verts, "
+          f"{len(ring_obj.data.polygons)} faces")
+    bpy.ops.object.select_all(action="DESELECT")
+    ring_obj.select_set(True)
+    bpy.context.view_layer.objects.active = ring_obj
+    ring_out = OUT_DIR / "mother_ring.stl"
+    bpy.ops.wm.stl_export(filepath=str(ring_out), export_selected_objects=True)
+    print(f"  → wrote {ring_out.name}")
 
 # -----------------------------------------------------------------------------
 # Embed the generating scripts into the .blend (visible in Scripting workspace)

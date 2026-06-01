@@ -69,6 +69,8 @@ This file is the working context Claude should load before assisting on this pro
 
 <fpc>
 - 形状: **LED ごとの円形ランド (island) を細い帯 (bridge) で数珠繋ぎ** にしたスケルトン形状 (≠ ベタ三角ゴア)。
+- **実装面**: **表面に WS2812C-2020 (LED)、裏面に 0603 チップコンデンサ (各 LED のバイパス)**。
+  - 裏面に 0603 が出っ張るため、`back_gore` (裏当て) は **0603 を逃がす凹み/開口** が必要 (詳細 [`docs/01-shell-cad.md` §カセット裏面構造](docs/01-shell-cad.md#cassette-back-side-structures--カセット裏面構造-inner_deck--back_gore--ring_claw))。
 - メリット: 3D 球面に追従しやすく反発力が小さい / 熱が中空内部へ抜ける / 肉抜き部分から外殻と直接シールできる。
 - 1 種類の Gerber データを 10 枚発注して全カセットに使い回す前提 (端子は左右対称配置)。
 - **極先端は truncate (五角形の 1/5 形に切り欠き)**。極の hex 5 個 (各極 5 個ずつ、計 10 個) は **共通 FPC には載らず、極専用 rigid PCB に分離** (案 S4)。
@@ -85,10 +87,11 @@ This file is the working context Claude should load before assisting on this pro
 
 <fpc_fixation>
 - **接着剤は使わない (zero adhesive)** — 前作の全損トラウマに直結するため絶対禁止。
-- 固定法: **アセテートテープ (片面) で FPC ごと外殻裏面を目張り** (両面テープは不要)。
+- 固定法: **ハイブリッド** (2026-06-01 確定) — 赤道近傍は `back_gore` (薄ハーフゴア裏当て・スナップ留め) で機械面圧、残り領域は **アセテートテープ (片面)**。
   - 骨組み形状の肉抜き部から、テープの糊が外殻プラスチックに直接接触してロックする。
   - アセテートテープの厚み (~0.2 mm) は球体内部に逃げるため LED 高さに影響しない。
-- 必要に応じて外殻裏面に **位置決めピン (突起)** を生やし、FPC の基準穴で位置決め。
+  - `back_gore` は機械式・無糊。ポゴ反力による FPC 浮きを抑える。詳細は [`docs/01-shell-cad.md` §カセット裏面構造](docs/01-shell-cad.md#cassette-back-side-structures--カセット裏面構造-inner_deck--back_gore--ring_claw)。
+- 外殻裏面に **`anchor_post` (位置決めピン/突起)** を肉抜きギャップに生やし、FPC 基準穴で位置決め + 後付けパーツの固定先を兼ねる。
 - **NEVER 3M両面テープ提案 / NEVER 瞬間接着剤・エポキシ.** これらは過去の失敗履歴。
 - **Adhesive-free design. Acetate single-sided tape applied across the FPC back covers both the FPC and the surrounding shell, locking them together through the FPC cutouts.**
 </fpc_fixation>
@@ -98,10 +101,12 @@ This file is the working context Claude should load before assisting on this pro
 <equator>
 - **外殻側にポゴピン (通常タイプ SMT)、マザーリング側はフラット金パッドのみ。**
   - 過去案 (両端ポゴピン/マザーリング側ポゴピン) は採用しない。
-- 外殻内側に **3Dプリント一体成形のポゴピンハウジング (ボックス)** を配置し、そこから垂直下向きにピンが生える。
+- 外殻内側の赤道エッジに **`inner_deck` (ポゴ台座)** を配置し、そこから垂直下向きにポゴ SMT ピンが生える。
+  - **FPC 後付けのため外殻と一体成形しない別パーツ**。FPC 装着後に `anchor_post` へ **スナップ + 反力点マイクロネジ** で固定 (2026-06-01 確定)。
 - マザーリングは **コンポーネント実装ゼロのフラットなドーナツ基板** (表裏に金メッキパッドのみ、球体コアにマウント)。
-- 赤道面トポロジー: **外側はゴールドバーグの辺に沿ったジグザグ / 内側 (ボックス底面) は Z=0 水平フラット**。
+- 赤道面トポロジー: **外側はゴールドバーグの辺に沿ったジグザグ / 内側 (`inner_deck` 底面) は Z=0 水平フラット**。
   - 外側ジグザグが組み立て時の "インロー (位置決めガイド)" を兼ねる。
+- **`ring_claw`**: 各カセット赤道エッジの爪がマザーリングを掴み、位置決め + 抜け止め + 圧着分担を担う (詳細・力学の未合意点は [`docs/01-shell-cad.md` §カセット裏面構造](docs/01-shell-cad.md#cassette-back-side-structures--カセット裏面構造-inner_deck--back_gore--ring_claw))。
 - 配線: 各 longitude スライス内で **北 DOUT → 赤道マザーリング → 南 DIN** をクロスルーティング。各スライスが独立した 158-LED ストリップ。
 - 圧着メカ: **案 K_new (非極ペンタゴンねじ × 10)** によりカセットが個別に球体コアへ引き込まれる → 赤道ポゴピンが各カセットそれぞれで圧着される ([§2.8](#28-pole-assembly--球体コア--短-pillar--2--極-pcb--キャップ-案-s4--案-k_new) 参照)。
 </equator>
@@ -224,7 +229,7 @@ CLAUDE が勝手に決めず、必ず確認すること。
   2. **Z=0 を横切る面が存在しないよう** 多面体の向きを調整 (赤道に LED を載せないため)。
   3. 経度 36° × 5 + 赤道 Z=0 フラットカットで 10 カセットに分割 (赤道の切断面のみ完全平面にクリーンアップ)。
   4. 各 LED 位置にラッパ穴 (円錐, ~120°) を Boolean で掘る。
-  5. 外殻裏面に「FPC 位置決めピン」「ポゴピンボックス」「南極ネジボス」を生やす。
+  5. 外殻裏面に「`anchor_post` (FPC 位置決めピン)」「南極ネジボス」を生やす (`inner_deck`/`back_gore` は別パーツとして後付け)。
 - 出力: 各カセット用 STL ファイル × 10 (もしくは共通 1 種類を回転コピー)。
 
 ### 4.2 FPC 回路設計 (KiCad)

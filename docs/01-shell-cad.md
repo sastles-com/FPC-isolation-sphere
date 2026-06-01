@@ -13,7 +13,7 @@
 - T=81 ゴールドバーグ多面体 G(9, 0) の生成スクリプト ([`../shell-cad/scripts/goldberg.py`](../shell-cad/scripts/goldberg.py))
 - 外殻 (φ100mm / 殻厚 5mm) のメッシュ化と 10 カセット分割
 - 各 LED 位置への円錐窓 (ラッパ穴, ~120°) の Boolean 抜き
-- 裏面の構造物 (FPC 位置決めピン / ポゴピンボックス / 南極ネジボス) の追加
+- 裏面の構造物 (FPC 位置決めピン/アンカーポスト / `inner_deck` ポゴ台座 / `ring_claw` / `back_gore` / 南極ネジボス) の追加 — 詳細は [§カセット裏面構造](#cassette-back-side-structures--カセット裏面構造-inner_deck--back_gore--ring_claw)
 - 各カセット用 STL 出力 × 10
 - **LED 座標の producer** として `shared/led_positions.csv` を出力 (consumer は fpc-kicad)
 
@@ -223,3 +223,62 @@
 | 他列 | 既存通り | `face_id`, `serial_index`, `x, y, z`, `normal_*`, `hemisphere`, `face_kind` |
 
 **LED 総数: 800** (= 共通 FPC 上の hex 790 + 極 PCB 上の hex 10、極/非極 pent 計 12 個は LED 無し)
+
+---
+
+## Cassette back-side structures / カセット裏面構造 (inner_deck / back_gore / ring_claw)
+
+カセット裏面 (内側凹面) に付く後付けパーツ群と FPC 固定方式。
+2026-06-01 の設計議論で方針確定 (背景は [CLAUDE.md §2.5/§2.6/§2.8](../CLAUDE.md))。
+
+### 用語 / Naming (snake_case で統一)
+
+| 名前 | 役割 | 備考 |
+| --- | --- | --- |
+| `inner_deck` | 赤道エッジの **Z=0 水平フラット台座** + ポゴ SMT 保持 | 旧称「ポゴピンボックス」。FPC 後付けのため**外殻と一体成形しない別パーツ** |
+| `back_gore` | 薄いゴールドバーグ・ハーフゴアの**裏当て**。FPC を裏から面圧 | 赤道近傍のみ使用 (ハイブリッド) |
+| `ring_claw` | マザーリングを掴む**爪** | 位置決め + 抜け止め + 圧着分担 |
+| `anchor_post` | 外殻裏の**肉抜きギャップ**に生やす小突起 | FPC 基準穴と兼用。後付けパーツの固定先 |
+
+### Confirmed decisions / 確定事項
+
+- **FPC 固定 = ハイブリッド**: 赤道近傍は `back_gore` で機械面圧 (ポゴ反力で FPC が浮くのを防ぐ)、残り領域はアセテートテープ ([CLAUDE.md §2.5](../CLAUDE.md#25-fpc-fixation--fpc-の固定方法))
+  - **接着剤ゼロは不変** (`back_gore` は機械式スナップ、テープは片面アセテート)
+- **後付け必須**: FPC を先に裏へ挿入する必要があるため、`inner_deck` / `back_gore` は**外殻と一体成形せず別パーツ**にして FPC 装着後に取り付ける
+  - 外殻裏には FPC を妨げない範囲で `anchor_post` のみ造形 (肉抜きギャップ内、FPC 基準穴を貫通)
+- **後付けパーツの固定 = スナップ + ネジ併用**: 常用はスナップ留め、ポゴ反力を受ける `inner_deck` の要所のみマイクロネジ 1 本追加
+- **`ring_claw` は保持に参加**: 位置決め (インロー) + 軸方向抜け止めに加え、赤道圧着力も分担
+
+### Proposed (未合意) / 提案
+
+- **コンプライアント爪 + ラジアルスロット**: `ring_claw` の barb をマザーリングの**ランプ + スロット**に掛け、**radial-inward 方向には滑れる**ようにする
+  - 狙い: 爪 (赤道) と M2.5 ねじ (ペンタゴン) の **2 点 radial 拘束による過拘束を回避**
+  - 役割分離: 爪 = 抜け止め + 予圧 / ねじ = 最終圧着
+  - 副次効果: ねじ無しでもコア + マザーリング単体で点灯テスト可 ([CLAUDE.md §2.8](../CLAUDE.md) の狙いと一致)
+  - **要合意**: この力学が成立するか (Q54 のテコ問題と連動、試作実測が要る)
+
+### 組立シーケンス / Assembly sequence
+
+1. 外殻印刷 (ラッパ穴 + 裏の肉抜きギャップに `anchor_post`)
+2. FPC を裏から挿入 (LED がラッパ穴へ、`anchor_post` は FPC 基準穴を貫通)
+3. DOUT/DIN を赤道側へ引き出し
+4. `inner_deck` 取付 (`anchor_post` にスナップ + 反力点ネジ) → ポゴ SMT 配線
+5. `back_gore` 取付 (赤道近傍、外周スナップ + ペンタの M2.5 共用)、残りはテープ
+6. コアへ装着 → `ring_claw` でマザーリングに位置決め・仮保持 → M2.5 本締め → 赤道ポゴ圧着
+
+### Open questions / 未確定事項 (裏面構造)
+
+<open_questions_backside>
+
+- **Q56 (一部確定)**: `inner_deck` のパッド = **3 極/カセット = `GND` / `5V` / `DATA` (北は DOUT・南は DIN)** (2026-06-01 確定)。
+  - 北 DOUT → マザーリング → 南 DIN のクロスルーティングは、データ 1 極をマザーリング内配線で受け渡し
+  - ピッチは [CLAUDE.md §3 Q3](../CLAUDE.md#3-open-questions--未確定事項) (2.54/2.0/1.27) 未確定
+  - 全体ポゴ数: 3 極 × 10 カセット = **30 ポゴ** (北15 + 南15、マザーリング表裏に金パッド)
+- **Q57**: `anchor_post` の本数と位置 (肉抜きギャップのどこに何本、FPC 基準穴と兼用)
+- **Q58**: `back_gore` のスナップ点数 (剛性次第、外周 6〜10 + ペンタ M2.5 共用 1 を仮置き)
+  - **制約**: FPC 裏面に **0603 チップコンデンサ**が各 LED 分出っ張る ([CLAUDE.md §2.4](../CLAUDE.md#24-fpc-design--骨組み-skeleton-形状--極専用-pcb-案-s4))。`back_gore` は 0603 を逃がす **凹み/開口** を持たせ、面圧は 0603 を避けた領域 (island 周辺/bridge) で掛ける必要がある
+- **Q59**: `ring_claw` 本数 (赤道エッジ沿い 2〜3 本/カセット?)
+- **Q60**: 後付けマイクロネジ規格 (M1.6 / M2、`inner_deck` 反力点用)
+- **Q61**: コンプライアント爪 + ラジアルスロットの力学成立性 (Q54 と連動、試作 or FEA)
+
+</open_questions_backside>
