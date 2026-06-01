@@ -3,7 +3,7 @@
 <subproject>
 - name: fpc-kicad
 - parent: Isolation Sphere V2
-- status: draft
+- status: wip
 - owner: sastle-com
 - depends_on: [shell-cad]
 </subproject>
@@ -70,19 +70,68 @@
 - consumer: KiCad 配置スクリプト (V1 の `place_from_csv.py` 思想を流用)
 - 必要列: `board_kind` (fpc / polar_pcb_n / polar_pcb_s), `cassette_id`, `serial_index`, `x, y, z`, `normal_*`, `face_kind` (pent/hex), **`is_screw_hole` (非極 pent のみ true)**
 
+### チェーン経路定義スクリプト `generate_fpc_chain.py` (2026-06-02 実装)
+
+**スクリプト**: `shell-cad/scripts/generate_fpc_chain.py`
+**用途**: 1 ハーフゴアカセット分の WS2812 データチェーン経路 (一筆書き) を求め、平面図 PNG + CSV を出力。
+
+#### アルゴリズム
+
+- **手法**: Warnsdorff 法 (greedy、バックトラックなし、O(n²)) → 失敗時は列スネーク fallback
+- **入力**: Goldberg T=81、内径 r=45mm (φ90mm)
+- **出力 CSV** (`shell-cad/output/fpc_chain_c<N>.csv`):
+  `chain_seq, face_idx, cassette_id, lon_deg, lat_deg, x_mm, y_mm, z_mm, flat_x_mm, flat_y_mm, is_din, is_dout`
+- **カセット割り当て**:
+  - 北 (z≥0): cassette 0‥4、lon 中心 = 0°, 72°, 144°, 216°, 288°
+  - 南 (z<0):  cassette 5‥9、lon 中心 = 36°, 108°, 180°, 252°, 324°
+
+#### 2026-06-02 実行結果 (cassette 0)
+
+| 項目 | 値 |
+|---|---|
+| hex 面数 | 80 (境界効果で +1、spec は 79) |
+| 非隣接ブリッジ | **0 件** — 全ブリッジが面共有エッジ隣接 |
+| ブリッジ 3D 距離 | min 5.27 / max 6.50 / mean 5.99 / std 0.36 mm (max/min = 1.23) |
+| DIN | fi=426, lat=+3.60°, lon=328.2° |
+| DOUT | fi=253, lat=+3.60°, lon=31.8° |
+
+**ブリッジ距離ばらつきの原因**: Goldberg 多面体固有の hex 不均一性 (pentagon 周辺が収縮)。FPC ブリッジ長として許容範囲。
+
+**平面図の射影**: 現在は **equirectangular** (`fx = R×Δlon`) を使用。
+高緯度で経度方向が `1/cos(lat)` 倍に伸びるため、極付近のブリッジが視覚上長く見える歪みあり。
+→ **正弦図法 (sinusoidal: `fx = R×cos(lat)×Δlon`)** への切り替えを検討中 (Q57)。
+
 ## Open questions / 未確定事項
 
 <open_questions>
-- **Q22: 共通 FPC 極先端の形状** — 台形 (水平 truncate) か五角形 1/5 (ペンタゴン分割形) か。後者なら極 PCB との嵌合がタイト
-- **Q23: カセット FPC ⇔ 極 PCB の接続方式** → **案 b 小型ポゴピン圧着で確定**
-- **Q24: 極 PCB の南北共通化** → **案 ii 同 Gerber + 別 populate で確定**
-- **Q25: 極 PCB の LED 5 個配置** — ペンタゴン頂点位置 (推奨、ヘキサゴンと整合) / 別レイアウト
-- **Q26: ペンタゴン中央位置** → 南極=端子レイヤー / 北極=純粋 5 LED (案 K_new で中央ねじなし、確定)
-- **Q15, Q17 (端子・磁石)** は [`03-power-charging.md`](03-power-charging.md) に集約
+
+**チェーン経路関連 (2026-06-02 新規)**
+
+- **Q56: DIN/DOUT の選択基準** — チェーン両端 (=ポゴピン接続 pad に最近接) の hex をどう選ぶか
+  - **案 A**: カセット経度境界に最も近い赤道 hex (現在の実装、lat≈+3.60°、lon≈±32°)
+  - **案 B**: 赤道 (Z=0) に最も近い hex (lat≈+3.35°、lon≈±8°、カセット中央寄り)
+  - 決定待ち: ポゴピン pad の経度方向位置が確定してから選択する
+- **Q57: 平面図の射影方法** — FPC アートワークの平面展開に使う座標系
+  - **equirectangular** (現状): `fx = R×Δlon`。高緯度で経度方向に歪み大 → 視覚的に極付近ブリッジが長く見える
+  - **sinusoidal** (候補): `fx = R×cos(lat)×Δlon`。緯度方向の弧長を保存、ブリッジ長の見た目が実態に近い
+  - KiCad 配置座標として使う場合は「FPC を実際に平らに展開した座標」が必要 → どちらも近似。正式展開には測地的アンローリングが必要 (将来課題)
+- **Q58: チェーンパターンの規則性** — Warnsdorff vs 列スネーク
+  - **Warnsdorff** (現状): 全ブリッジ面隣接 (距離 ≈ 5.3–6.5 mm)、経路が不規則でアートワーク上読みにくい
+  - **列スネーク**: 経度方向に列を定義してジグザグ。視覚上整然。一部ブリッジが面隣接でない可能性
+  - 未確定: FPC 製造上どちらが望ましいか
+
+**既存 open questions**
+
+- **Q22: 共通 FPC 極先端の形状** — 台形 (水平 truncate) か五角形 1/5 (ペンタゴン分割形) か
+- **Q25: 極 PCB の LED 5 個配置** — ペンタゴン頂点位置 vs 別レイアウト
 - **Q3: ポゴピンピッチ** (極 PCB 側も赤道側と統一すべきか)
 
 **クローズ済み**
-- ~~Q30 極 PCB ⇔ カセット FPC のデータチェーン接続トポロジー~~ → 5 × 158 + 1 × 10 の 6 ストリップで確定
+- ~~Q23~~ → 小型ポゴピン圧着確定
+- ~~Q24~~ → 同 Gerber + 別 populate 確定
+- ~~Q26~~ → 南極=端子/北極=5 LED 確定 (案 K_new)
+- ~~Q30~~ → 5×158 + 1×10 の 6 ストリップ確定
+
 </open_questions>
 
 ## References
