@@ -241,46 +241,58 @@ def _band_corners(p0, p1, w):
     n = (d / L) * 1j * (w / 2.0)     # perpendicular half-width
     return [p0 + n, p1 + n, p1 - n, p0 - n]
 
-def write_skeleton_outline_svg(path, centres, island_r, bridge_w, margin=4.0):
-    """Union islands+bands into ONE silhouette and write it as stroked,
-    fill:none closed paths → KiCad imports a clean Edge.Cuts outline
-    (no white fill). Returns False if shapely is unavailable."""
+def write_skeleton_outline_svg(path, centres, island_r, bridge_w, margin=4.0,
+                               json_path=None):
+    """Union islands+bands into ONE silhouette. Writes:
+      - SVG: stroked fill:none closed paths (preview / manual import)
+      - JSON (optional): outline rings in the **KiCad frame** (origin=LED01,
+        Y-down) so pcbnew can draw Edge.Cuts in the exact same frame as the
+        LED placements (kicad_x/y). Returns False if shapely is unavailable."""
     try:
         from shapely.geometry import Point, Polygon
         from shapely.ops import unary_union
     except ImportError:
         return False
 
-    geoms = [Point(z.real, z.imag).buffer(island_r, quad_segs=24) for z in centres]
+    geoms = [Point(z.real, z.imag).buffer(island_r, quad_segs=12) for z in centres]
     for i in range(len(centres) - 1):
         cs = _band_corners(centres[i], centres[i + 1], bridge_w)
         geoms.append(Polygon([(c.real, c.imag) for c in cs]))
-    merged = unary_union(geoms)
+    merged = unary_union(geoms).simplify(0.03, preserve_topology=True)
 
     polys = list(merged.geoms) if merged.geom_type == "MultiPolygon" else [merged]
-    # Origin at LED01 (chain start / DIN); +X right, +Y up (SVG y is flipped).
+    # Origin at LED01 (chain start / DIN). KiCad/SVG frame = Y-down → flip Y.
     ox, oy = centres[0].real, centres[0].imag
     xs = [z.real for z in centres]; ys = [z.imag for z in centres]
-    minx = min(xs) - island_r - margin - ox
-    maxx = max(xs) + island_r + margin - ox
-    # SVG-y (flipped) range:  Y = -(py - oy)
+    minx, maxx = min(xs) - island_r - margin - ox, max(xs) + island_r + margin - ox
     miny = -(max(ys) + island_r + margin - oy)
     maxy = -(min(ys) - island_r - margin - oy)
     w, h = maxx - minx, maxy - miny
-    def fmt(ring):
-        pts = [f"{px - ox:.3f},{-(py - oy):.3f}" for px, py in ring.coords]
-        return "M " + " L ".join(pts) + " Z"
+
+    def ring_kicad(ring):
+        return [(round(px - ox, 4), round(-(py - oy), 4)) for px, py in ring.coords]
+
+    rings = []           # list of {"exterior":[...], "holes":[[...],...]}
     d = []
     for pg in polys:
-        d.append(fmt(pg.exterior))
-        for hole in pg.interiors:          # cut-outs become separate subpaths
-            d.append(fmt(hole))
+        ext = ring_kicad(pg.exterior)
+        holes = [ring_kicad(h) for h in pg.interiors]
+        rings.append({"exterior": ext, "holes": holes})
+        d.append("M " + " L ".join(f"{x},{y}" for x, y in ext) + " Z")
+        for hl in holes:
+            d.append("M " + " L ".join(f"{x},{y}" for x, y in hl) + " Z")
+
     Path(path).write_text(
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'width="{w:.2f}mm" height="{h:.2f}mm" viewBox="{minx:.3f} {miny:.3f} {w:.3f} {h:.3f}">\n'
         f'  <!-- origin (0,0) = LED01 / DIN (chain start) -->\n'
         f'  <path d="{" ".join(d)}" fill="none" stroke="#000000" '
         f'stroke-width="0.15"/>\n</svg>\n')
+
+    if json_path:
+        import json
+        Path(json_path).write_text(json.dumps(
+            {"frame": "kicad (origin=LED01, Y-down, mm)", "rings": rings}, indent=0))
     return True
 
 
@@ -411,14 +423,18 @@ def main() -> None:
         wr = csv.writer(fh)
         wr.writerow(['order', 'face_idx', 'cassette_id',
                      'x3d_mm', 'y3d_mm', 'z3d_mm',
-                     'flat_x_mm', 'flat_y_mm', 'is_din', 'is_dout'])
+                     'flat_x_mm', 'flat_y_mm',        # unfold frame (Y up, math)
+                     'kicad_x_mm', 'kicad_y_mm',      # KiCad/SVG frame (Y down, origin=LED01)
+                     'is_din', 'is_dout'])
         for seq, fidx in enumerate(chain):
             c = fi_to[fidx]['c']; z = centres[seq]
+            # KiCad/SVG share origin=LED01 (centres[0]=0) and Y-down → flip Y.
             wr.writerow([seq, fidx, cid,
                          round(float(c[0]), 4), round(float(c[1]), 4), round(float(c[2]), 4),
                          round(z.real, 4), round(z.imag, 4),
+                         round(z.real, 4), round(-z.imag, 4),
                          seq == 0, seq == len(chain) - 1])
-    print(f"  → {csv_path}")
+    print(f"  → {csv_path}  (kicad_x/y match the outline SVG exactly)")
 
     # 6 ── Plot the unfolded net ───────────────────────────────────────────
     try:
@@ -473,10 +489,12 @@ def main() -> None:
     print(f"  → {svg}  (filled preview, island r={ISLAND_R}mm, band w={BRIDGE_W}mm)")
 
     osvg = OUTDIR / f'fpc_skeleton_c{cid}_outline.svg'
-    if write_skeleton_outline_svg(osvg, centres, ISLAND_R, BRIDGE_W):
-        print(f"  → {osvg}  (unioned outline, fill:none → KiCad Edge.Cuts)")
+    ojson = OUTDIR / f'fpc_outline_c{cid}.json'
+    if write_skeleton_outline_svg(osvg, centres, ISLAND_R, BRIDGE_W, json_path=ojson):
+        print(f"  → {osvg}  (outline preview, fill:none)")
+        print(f"  → {ojson}  (outline rings in KiCad frame → place_fpc.py Edge.Cuts)")
     else:
-        print("  (shapely not installed — outline SVG skipped; uv add shapely)")
+        print("  (shapely not installed — outline skipped; uv add shapely)")
     if args.show:
         plt.show()
     plt.close()
