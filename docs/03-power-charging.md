@@ -12,7 +12,7 @@
 
 - **南極磁気端子** (Φ4 mm 市販マグネット、2 極接点) の選定・実装
 - **LiPo バッテリ** (2000 mAh × 2、合計 ~14.8 Wh) の球体コア内格納仕様
-- **AWG26 配線ルート** (南極 PCB → 南極 pillar 内 Φ3 mm 通路 → コア内充電 IC)
+- **AWG26 配線ルート** (南極磁気端子蓋 → 南極 pillar 内 Φ3 mm 通路 → コア内充電 IC)
 - 充電 IC ボード との **インターフェース定義** (コネクタ規格、ピンアサイン)
 - 任意姿勢でのマグネットプラグ接続を想定 (クレードルは next step)
 
@@ -20,7 +20,7 @@
 
 - **充電 IC / バッテリ保護回路 / MCU の回路設計** — 別プロジェクト管轄 (CLAUDE.md §1, §3 Q6)
 - 球体コアの 3D 形状・pillar 機構 → [`01-shell-cad.md`](01-shell-cad.md)
-- 共通 FPC / 極 PCB の Gerber 設計 → [`02-fpc-kicad.md`](02-fpc-kicad.md)
+- 共通 FPC の Gerber 設計 → [`02-fpc-kicad.md`](02-fpc-kicad.md)
 - USB-C / Wi-Fi / BLE 経由の通信 → 別プロジェクト管轄
 - クレードル (充電台) — 任意姿勢手付け方式で進める。クレードルは next step
 
@@ -51,7 +51,7 @@
 ### 配線
 
 - **AWG26 × 2 本** (VBUS, GND)
-- ルート: 南極キャップ端子パッド → 南極 PCB → 南極 pillar 内 **Φ3 mm 配線通路** → 球体コア → 充電 IC ボード入力
+- ルート: 南極磁気端子蓋の端子パッド → 南極 pillar 内 **Φ3 mm 配線通路** → 球体コア → 充電 IC ボード入力
 - 引き抜き式コネクタ (例: JST PH 2pin) でコア内側で接続
 - **キャップはスナップ式**: メンテで外した時、配線が突っ張らないよう **長さ余裕 + コネクタによる脱着** を確保
 
@@ -84,4 +84,4 @@
 - [`../CLAUDE.md`](../CLAUDE.md) — プロジェクト共通の前提、§2.7 BOM と §2.8 Pole assembly
 - [`10pieces-isolation-sphere-concept.md`](10pieces-isolation-sphere-concept.md) — 一次資料
 - [`01-shell-cad.md`](01-shell-cad.md) — 球体コア / pillar / キャップ機構 (上流)
-- [`02-fpc-kicad.md`](02-fpc-kicad.md) — 南極 PCB の端子パッド設計 (関連)
+- [`02-fpc-kicad.md`](02-fpc-kicad.md) — 共通 FPC / 赤道 inner_deck の配線 (関連)

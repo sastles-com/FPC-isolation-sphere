@@ -26,8 +26,8 @@ This file is the working context Claude should load before assisting on this pro
 ## 1. Project Overview / プロジェクト概要
 
 <project>
-- **What / なに**: 直径 100 mm の球体 LED ディスプレイ「Isolation Sphere V2」。 約 810 個の WS2812-2020 を球面に並べた "デジタル地球儀" 風ピクセルディスプレイ。
-- **A 100 mm spherical LED display ("Isolation Sphere V2") with ~810 WS2812-2020 pixels covering a Goldberg polyhedron shell.**
+- **What / なに**: 直径 100 mm の球体 LED ディスプレイ「Isolation Sphere V2」。 **800 個**の WS2812-2020 を球面に並べた "デジタル地球儀" 風ピクセルディスプレイ。
+- **A 100 mm spherical LED display ("Isolation Sphere V2") with 800 WS2812-2020 pixels covering a Goldberg polyhedron shell.**
 - **Why this revision / 今回の改修動機**: 前作はスパイラル配線+接着剤固定でメンテ不可だった。LED 1 個の故障で全損する設計を、**カセット交換式 + 接着剤ゼロ** に作り直す。
 - **The previous build was glued together and a single dead LED bricked the whole sphere. V2 makes every section a hot-swappable cassette with zero adhesive bonds.**
 - **Repo state / 現状**: 概念設計フェーズ。コードはまだ無く、`docs/` の議論ログのみ。今後 Blender Python と KiCad で実装に入る。
@@ -42,7 +42,7 @@ This file is the working context Claude should load before assisting on this pro
 <geometry>
 - 多面体: **ゴールドバーグ多面体 T=81** (Goldberg polyhedron, class T=81)
 - 外径 φ100 mm / 内径 φ90 mm / 殻厚 **5 mm** (radial)
-- 総ピクセル数: ~810 (LED は **赤道 Z=0 上には配置しない**。赤道を挟んで北/南に逃がす千鳥配置)
+- 総ピクセル数: **800** (= 全 hex。LED は **赤道 Z=0 上には配置しない**。赤道を挟んで北/南に逃がす千鳥配置)
 - LEDs are deliberately offset from the equator so the equator slice is reserved for pogo-pin contacts only.
 </geometry>
 
@@ -50,7 +50,7 @@ This file is the working context Claude should load before assisting on this pro
 
 <cassettes>
 - 経度方向 **5 分割** × 南北半球で2分割 = **10 個のハーフゴア・カセット**
-- 各カセット = 3D プリント外殻 + 骨組み FPC (81 LED 相当)
+- 各カセット = 3D プリント外殻 + 骨組み FPC (**80 LED**)
 - 外殻の色: 黒 (反射抑制のためのブラックマスク効果)
 - **Each cassette is one half-gore: 1 of 5 longitudinal slices × north/south hemisphere = 10 cassettes total.**
 </cassettes>
@@ -65,7 +65,7 @@ This file is the working context Claude should load before assisting on this pro
 - **LEDs sit at the bottom of cone-shaped wells in the shell, giving a ~120° beam and acting as built-in black mask. The shell thickness shields the LED package from pogo-pin compression.**
 </led_window>
 
-### 2.4 FPC design — "骨組み (skeleton)" 形状 + 極専用 PCB (案 S4)
+### 2.4 FPC design — "骨組み (skeleton)" 形状 (全 hex 共通 FPC、極専用 PCB 廃止)
 
 <fpc>
 - 形状: **LED ごとの円形ランド (island) を細い帯 (bridge) で数珠繋ぎ** にしたスケルトン形状 (≠ ベタ三角ゴア)。
@@ -73,14 +73,13 @@ This file is the working context Claude should load before assisting on this pro
   - 裏面に 0603 が出っ張るため、`back_gore` (裏当て) は **0603 を逃がす凹み/開口** が必要 (詳細 [`docs/01-shell-cad.md` §カセット裏面構造](docs/01-shell-cad.md#cassette-back-side-structures--カセット裏面構造-inner_deck--back_gore--ring_claw))。
 - メリット: 3D 球面に追従しやすく反発力が小さい / 熱が中空内部へ抜ける / 肉抜き部分から外殻と直接シールできる。
 - 1 種類の Gerber データを 10 枚発注して全カセットに使い回す前提 (端子は左右対称配置)。
-- **極先端は truncate (五角形の 1/5 形に切り欠き)**。極の hex 5 個 (各極 5 個ずつ、計 10 個) は **共通 FPC には載らず、極専用 rigid PCB に分離** (案 S4)。
-- 各カセット FPC は **79 LED** (= 1 ペンタゴン穴を除いた hex のみ、極先端 1 LED は極 PCB へ移管)。
+- **極専用 PCB は廃止** (2026-06-02)。10 カセット + ペンタゴンねじ留め構造の採用に伴い、極周辺への別基板配置をやめ、**全 800 hex を共通 FPC に集約**。
+- 各カセット FPC は **80 LED** (= カセットに属する全 hex)。極先端 hex も truncate せず各カセットの一筆書きに含む。
   - 各カセットに **非極ペンタゴン 1 個** が含まれ、その位置は LED ではなく **M2.5 クランプねじの貫通穴** になる ([§2.8](#28-pole-assembly--球体コア--短-pillar--2--極-pcb--キャップ-案-s4--案-k_new) 参照)。
-- **Common skeleton FPC × 10 + 2 dedicated polar rigid PCBs. Per-cassette LED count: 79 (1 pentagon position becomes M2.5 screw through-hole). Polar PCB LED count: 5 each.**
-- **LED 総数: 800** = 共通 FPC hex 790 (= 79 × 10) + 極 PCB hex 10 (= 5 × 2)
-  - LED 非搭載のペンタゴン: 非極 pent 10 個 (M2.5 クランプねじ穴に転用) + 極 pent 2 個 (極 PCB 構造領域)
-- データチェーン: **6 ストリップ** = 5 縦縞 (各 158 LED = 79 × 2) + 1 極 (10 LED = 5 × 2、コア内ワイヤで N PCB ⇔ S PCB を接続)
-- 極専用 PCB の詳細は [`docs/02-fpc-kicad.md`](docs/02-fpc-kicad.md) 参照。
+- **Common skeleton FPC × 10 only (no polar PCB). Per-cassette LED count: 80 (all hexes; 1 pentagon position becomes the M2.5 screw through-hole).**
+- **LED 総数: 800** = 共通 FPC hex 80 × 10 (全 hex)
+  - LED 非搭載のペンタゴン (12 個・全て LED 無し): 非極 pent 10 個 (M2.5 クランプねじ穴) + 極 pent 2 個 (南極=磁気端子 / 北極=装飾蓋)
+- データチェーン: **5 ストリップ** = 5 縦縞 (各 **160 LED = 80 × 2**、北カセット → 赤道マザーリングでクロス → 南カセット)。極ストリップは無し。ESP32 は **5 並列出力**。
 </fpc>
 
 ### 2.5 FPC fixation / FPC の固定方法
@@ -101,13 +100,14 @@ This file is the working context Claude should load before assisting on this pro
 <equator>
 - **外殻側にポゴピン (通常タイプ SMT)、マザーリング側はフラット金パッドのみ。**
   - 過去案 (両端ポゴピン/マザーリング側ポゴピン) は採用しない。
-- 外殻内側の赤道エッジに **`inner_deck` (ポゴ台座)** を配置し、そこから垂直下向きにポゴ SMT ピンが生える。
+- 外殻内側の赤道エッジに **`inner_deck` (ポゴ台座)** を配置し、そこから垂直下向きにポゴピンが生える。
   - **FPC 後付けのため外殻と一体成形しない別パーツ**。FPC 装着後に `anchor_post` へ **スナップ + 反力点マイクロネジ** で固定 (2026-06-01 確定)。
+  - **パッド = 6 極/カセット = `2×GND / 2×5V / DIN / DOUT`** (回文配列、電源 2 重化)。全 **60 ポゴ** (北30+南30)。ポゴは 2.54 DIP (RTLECS 1.5A/pin) を FR4 補強材で支持 (2026-06-02 確定)。全白禁止+輝度上限運用
 - マザーリングは **コンポーネント実装ゼロのフラットなドーナツ基板** (表裏に金メッキパッドのみ、球体コアにマウント)。
 - 赤道面トポロジー: **外側はゴールドバーグの辺に沿ったジグザグ / 内側 (`inner_deck` 底面) は Z=0 水平フラット**。
   - 外側ジグザグが組み立て時の "インロー (位置決めガイド)" を兼ねる。
 - **`ring_claw`**: 各カセット赤道エッジの爪がマザーリングを掴み、位置決め + 抜け止め + 圧着分担を担う (詳細・力学の未合意点は [`docs/01-shell-cad.md` §カセット裏面構造](docs/01-shell-cad.md#cassette-back-side-structures--カセット裏面構造-inner_deck--back_gore--ring_claw))。
-- 配線: 各 longitude スライス内で **北 DOUT → 赤道マザーリング → 南 DIN** をクロスルーティング。各スライスが独立した 158-LED ストリップ。
+- 配線: 各 longitude スライス内で **北 DOUT → 赤道マザーリング → 南 DIN** をクロスルーティング。各スライスが独立した **160-LED ストリップ** (80 × 2)。南カセットの DOUT は終端 (ESP32 へ戻さない)。
 - 圧着メカ: **案 K_new (非極ペンタゴンねじ × 10)** によりカセットが個別に球体コアへ引き込まれる → 赤道ポゴピンが各カセットそれぞれで圧着される ([§2.8](#28-pole-assembly--球体コア--短-pillar--2--極-pcb--キャップ-案-s4--案-k_new) 参照)。
 </equator>
 
@@ -115,23 +115,22 @@ This file is the working context Claude should load before assisting on this pro
 
 | 項目 / Item | 確定 / Decided | 備考 / Note |
 | --- | --- | --- |
-| LED | **WS2812-2020 系** (B/C 互換) | 高さ 0.65 mm。**総数 800 = 共通 FPC 790 + 極 PCB 10** |
-| Controller / マイコン | **ESP32 系** (S3 / C3 など) | 別プロジェクト管轄。Wi-Fi/BLE + LED 制御。6 並列 PIO/RMT 出力 |
+| LED | **WS2812-2020 系** (B/C 互換) | 高さ 0.65 mm。**総数 800 = 共通 FPC 80 × 10** (極専用 PCB 廃止) |
+| Controller / マイコン | **ESP32 系** (S3 / C3 など) | 別プロジェクト管轄。Wi-Fi/BLE + LED 制御。**5 並列** PIO/RMT 出力 |
 | 充電 IC | (型番未定) | **別プロジェクト管轄** ([§1, Q6](#3-open-questions--未確定事項) 参照) |
 | バッテリ | **LiPo 2000 mAh × 2** | 球体コア内に格納。合計 ~14.8 Wh |
 | FPC 固定テープ | アセテートテープ (片面) | 例: 一般電子工作向けアセテートクロステープ |
 | 外殻 | 3D プリント (PETG)、黒 | レジン or 高精度 FDM |
-| 極専用 PCB | **rigid FR4 × 2 枚 (北極/南極)** | 5 LED + 底面ポゴピン。南極のみ端子層 + 磁石穴あり |
+| ~~極専用 PCB~~ | **廃止 (2026-06-02)** | 案 S4 廃止。極周辺 LED は無し。南極=磁気端子 / 北極=装飾蓋 |
 | クランプねじ | **M2.5 真鍮意匠ねじ × 10** (黒もしくは無垢真鍮) | **各カセットの非極ペンタゴン位置 → コア表面のサテライト・ボスへ螺合**。沈み込み (recessed) で意匠ボタン演出 |
 | 真鍮インサート | **M2.5 ヒートセット × 10** (深さ 4 mm) | 球体コアの 10 サテライト・ボスのねじ受け |
-| Pillar (極スタブ) | **3D プリント PETG × 2 (北/南)** | 球体コアと一体造形。**極 PCB の支持と配線通路のみ** (構造荷重は受けない、案 K_new で大幅減役) |
+| Pillar (極スタブ) | **3D プリント PETG × 2 (北/南)** | 球体コアと一体造形。**南極=磁気端子の支持 + 配線通路 / 北極=装飾蓋の支持** (構造荷重は受けない) |
 | TPU ガスケット | **TPU 95A 厚 0.5-1.0 mm** (オプション) | 案 K_new で応力分散されたため必須度低下。衝撃保険として残す |
 | 磁気端子 (南極) | **市販 Φ4 mm マグネット、2 極接点** | 具体型番は [§3 Q17](#3-open-questions--未確定事項) |
 | 端子配線 | **AWG26 × 2 本** | 南極キャップ → 南極 pillar 内通路 → コア内充電 IC |
-| 極チェーン配線 | **AWG28-30 × 1-2 本** | 北極 PCB ⇔ 南極 PCB をコア経由接続 (極ストリップ用データ + GND) |
-| ポゴピン | 通常 SMT 型 (両端型ではない) | 赤道側 + 極専用 PCB 底面の両方で同思想。ピッチは未確定 |
+| ポゴピン | **RTLECS 2.54 DIP × 6/カセット = 60** | 1.5A/pin, ストローク 2.0mm, ばね 75gf, 高 7mm。赤道 inner_deck のみ (極側廃止)、FR4 補強材で支持。2×GND/2×5V/DIN/DOUT |
 
-### 2.8 Pole assembly — 球体コア + 短 pillar × 2 + 極 PCB + キャップ (案 S4 + 案 K_new)
+### 2.8 Pole assembly — 球体コア + 短 pillar × 2 + キャップ (案 K_new、極専用 PCB 廃止)
 
 <pole_assembly>
 **クランプ機構の根本方針 (案 K_new)**: 極ねじを廃止し、**10 個の非極ペンタゴン位置で M2.5 ねじ留め** に変更。
@@ -155,25 +154,20 @@ This file is the working context Claude should load before assisting on this pro
 - **10 ねじによる分散クランプ** = 応力集中ゼロ、衝撃に強い、カセット個別交換可
 - ねじ頭処理: **意匠アクセント (案 C) として "見せる"**、外殻面より **わずかに窪み (recessed)** で 10 個の icosahedral 対称配置を強調
 
-#### 極部の役割降格 (pillar + PCB + キャップ)
+#### 極部 (pillar + キャップ) — **極専用 PCB は廃止 (2026-06-02)**
 
-- **短 pillar × 2** (北極 pillar / 南極 pillar): 球体コアから極方向へ伸びる **~15-20 mm の PETG スタブ**。
-  - **役割**: 極 PCB の支持 + 配線通路 (構造クランプ荷重は受けない)
+極周辺への LED 配置をやめ、全 hex を共通 FPC に集約したため、極専用 rigid PCB・極ストリップ・極チェーン配線はすべて廃止。極部は **南極=磁気端子 / 北極=装飾蓋** のみ。
+
+- **短 pillar × 2** (北極/南極): 球体コアから極方向へ伸びる **~15-20 mm の PETG スタブ**。
+  - **役割**: 南極=磁気端子モジュールの支持 + 配線通路 / 北極=装飾蓋の支持 (構造クランプ荷重は受けない)
   - 南極 pillar は **内部に Φ3 mm 配線通路** (AWG26 × 2 = 磁気端子用)
-  - 北極 pillar は **内部に Φ2 mm 配線通路** (極ストリップ用データ + GND、AWG28-30)
+  - 北極 pillar は配線通路不要 (極 LED が無いため)
   - コアと一体 3D プリント想定 ([§3 Q33](#3-open-questions--未確定事項))
-- **極専用 rigid PCB × 2** (北極/南極ペンタゴン PCB):
-  - 5 LED 配置 (周辺ヘキサゴン位置に整合)
-  - 底面に **小型ポゴピン × (4 ピン × 5 カセット = 20 ピン)** で各カセット FPC 先端に圧着
-  - **南極のみ**: 端子パッド層 + マグネット穴 (Φ4) (中央ねじは廃止)
-  - **北極**: ただの 5 LED 基板
-  - **pillar への固定**: スナップ留め (案 K_new で実用化、中央ねじ無し)
-- **極キャップ × 2**:
-  - 5 ラッパ穴
-  - **南極**: 純粋な磁気端子モジュール (Φ4 磁石保持 + 端子パッド窓、中央ねじなし)
-  - **北極**: 純粋装飾蓋 (ラッパ穴のみ)
-  - **PCB への固定**: 5 cantilever 爪 (ペンタゴン頂点) によるスナップ留め — 工具不要、graceful failure 設計
-- 極部チェーン: **北極 PCB ⇔ コア内ワイヤ ⇔ 南極 PCB** で 10 LED を 1 ストリップとして直列駆動 (ESP32 の 6 出力のうち 1 本を割当)
+- **極キャップ × 2** (LED 無し):
+  - **南極**: 磁気端子モジュール (Φ4 磁石保持 + 端子パッド窓)
+  - **北極**: 純粋装飾蓋
+  - **pillar への固定**: スナップ留め (中央ねじ無し)
+- 極ペンタゴン (2 個) は LED 非搭載 — 非極ペンタゴン (ねじ穴) と同じく LED 無し領域
 
 #### 応力対策 / Stress-relief (案 K_new で大幅簡素化)
 
@@ -194,23 +188,23 @@ CLAUDE が勝手に決めず、必ず確認すること。
 <open_questions>
 **機構・部品系 / Mechanical & parts**
 - **Q1: ポゴピンボックスを外殻にどう固定するか.** 案 A スナップ / 案 B 極小皿ネジ / 案 C モノコック ([概念ドキュメント【ログ 13】](docs/10pieces-isolation-sphere-concept.md))
-- **Q3: ポゴピンのピッチ (2.54 / 2.0 / 1.27 mm).** 赤道 + 極 PCB 両方で要確定
+- **Q3: ポゴピンのピッチ (2.54 / 2.0 / 1.27 mm).** 赤道 inner_deck で要確定。候補 RTLECS 2.54 DIP の定格電流/ストロークも要確認
 - **Q15: 南極マグネット個数とレイアウト** (orientation lock のため非対称配置候補)
 - **Q17: 磁気端子の市販品具体型番** (Φ4mm 2 極、AliExpress 等)
-- **Q22-Q26: 極専用 PCB の詳細** (FPC tip 形状 / 接続方式 / 南北 Gerber 共通化 / LED 配置 / 中央処遇) — [`02-fpc-kicad.md`](docs/02-fpc-kicad.md)
 - **Q31-Q35: 球体コア詳細** (形状 / マザーリング結合 / pillar 結合 / 電池配置 / 充電 IC 位置) — [`01-shell-cad.md`](docs/01-shell-cad.md)
 - **Q54: 赤道圧着力の検証方法** (案 K_new でテコの腕が長くなったので試作で実測必要)
 - **Q55 (NEW): ペンタゴン縮小 + ラッパ穴被せの実装** — 標準 Goldberg ではなく **非極ペンタゴンを縮小** し、周囲 hex のラッパ穴を斜めに pent 領域へ被せる意匠演出。`goldberg.py` のメッシュ修正が必要 — [`01-shell-cad.md`](docs/01-shell-cad.md)
 
 **電気系 / Electrical**
-- **Q2: ESP32 の具体型番 (S3 / C3 / その他).** 充電 IC 別プロジェクト経由で決まる。**6 並列 PIO/RMT 出力が要件**
+- **Q2: ESP32 の具体型番 (S3 / C3 / その他).** 充電 IC 別プロジェクト経由で決まる。**5 並列 PIO/RMT 出力が要件** (5 ストリップ)
 - **Q4: マザーリング基板の電源・データ供給方法.**
 - **Q40-Q42: 充電 IC とのインターフェース** (コネクタ規格 / 充電電流 / 過放電保護位置) — [`03-power-charging.md`](docs/03-power-charging.md)
 
 **クローズ済み (Resolved)**
+- ~~Q22-Q26 極専用 PCB の詳細~~ → **極専用 PCB 廃止 (2026-06-02)**。全 hex を共通 FPC に集約 (80 LED/cassette、5 ストリップ)
 - ~~Q27 pillar 素材~~ → PETG 確定
 - ~~Q36-Q39 応力対策数値化~~ → 案 K_new で重要度低下 (オプション扱い)
-- ~~Q43-Q48 極 PCB サイズ / WS2813 / 6 ストリップ~~ → サブ案 c (極 PCB 5 LED のまま、6 ストリップで不均一許容、WS2812 系維持)
+- ~~Q43-Q48 極 PCB サイズ / WS2813 / 6 ストリップ~~ → **極 PCB 廃止により無効化**。**5 ストリップ (各 160) 確定**、WS2812 系維持
 - ~~Q29 北極クランプ~~ → スナップ留め (極ねじなし)
 - ~~Q49 LED 総数~~ → 800 確定
 - ~~Q50 ペンタゴン穴の Gerber 表現~~ → 非極 pent はねじ穴に転用 (Φ2.7 + M2.5 座ぐり)
@@ -373,7 +367,7 @@ CLAUDE.md は索引役として下表だけを維持する。
 | --- | --- | --- | --- | --- |
 | 00 | concept | [`docs/10pieces-isolation-sphere-concept.md`](docs/10pieces-isolation-sphere-concept.md) | reference | 全議論ログ (一次資料、編集不可) |
 | 01 | shell-cad | [`docs/01-shell-cad.md`](docs/01-shell-cad.md) | wip | 外殻 (T=81 ゴールドバーグ) + 球体コア + 短 pillar × 2 + キャップ + クランプ機構 |
-| 02 | fpc-kicad | [`docs/02-fpc-kicad.md`](docs/02-fpc-kicad.md) | draft | 共通骨組み FPC (極先端 truncate) + 極専用ペンタゴン rigid PCB × 2 (案 S4) |
+| 02 | fpc-kicad | [`docs/02-fpc-kicad.md`](docs/02-fpc-kicad.md) | draft | 共通骨組み FPC × 10 (全 hex 80 LED、一筆書き + polyhedral 展開、極専用 PCB 廃止) |
 | 03 | power-charging | [`docs/03-power-charging.md`](docs/03-power-charging.md) | draft | 南極磁気端子 (Φ4 mm 2 極) + LiPo 2000×2 + AWG26 配線。充電 IC は別プロジェクト |
 | — | — | — | — | _(未作成。下記 §8.2 のルールで増やしていく)_ |
 
