@@ -241,6 +241,49 @@ def _band_corners(p0, p1, w):
     n = (d / L) * 1j * (w / 2.0)     # perpendicular half-width
     return [p0 + n, p1 + n, p1 - n, p0 - n]
 
+def write_skeleton_outline_svg(path, centres, island_r, bridge_w, margin=4.0):
+    """Union islands+bands into ONE silhouette and write it as stroked,
+    fill:none closed paths → KiCad imports a clean Edge.Cuts outline
+    (no white fill). Returns False if shapely is unavailable."""
+    try:
+        from shapely.geometry import Point, Polygon
+        from shapely.ops import unary_union
+    except ImportError:
+        return False
+
+    geoms = [Point(z.real, z.imag).buffer(island_r, quad_segs=24) for z in centres]
+    for i in range(len(centres) - 1):
+        cs = _band_corners(centres[i], centres[i + 1], bridge_w)
+        geoms.append(Polygon([(c.real, c.imag) for c in cs]))
+    merged = unary_union(geoms)
+
+    polys = list(merged.geoms) if merged.geom_type == "MultiPolygon" else [merged]
+    # Origin at LED01 (chain start / DIN); +X right, +Y up (SVG y is flipped).
+    ox, oy = centres[0].real, centres[0].imag
+    xs = [z.real for z in centres]; ys = [z.imag for z in centres]
+    minx = min(xs) - island_r - margin - ox
+    maxx = max(xs) + island_r + margin - ox
+    # SVG-y (flipped) range:  Y = -(py - oy)
+    miny = -(max(ys) + island_r + margin - oy)
+    maxy = -(min(ys) - island_r - margin - oy)
+    w, h = maxx - minx, maxy - miny
+    def fmt(ring):
+        pts = [f"{px - ox:.3f},{-(py - oy):.3f}" for px, py in ring.coords]
+        return "M " + " L ".join(pts) + " Z"
+    d = []
+    for pg in polys:
+        d.append(fmt(pg.exterior))
+        for hole in pg.interiors:          # cut-outs become separate subpaths
+            d.append(fmt(hole))
+    Path(path).write_text(
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'width="{w:.2f}mm" height="{h:.2f}mm" viewBox="{minx:.3f} {miny:.3f} {w:.3f} {h:.3f}">\n'
+        f'  <!-- origin (0,0) = LED01 / DIN (chain start) -->\n'
+        f'  <path d="{" ".join(d)}" fill="none" stroke="#000000" '
+        f'stroke-width="0.15"/>\n</svg>\n')
+    return True
+
+
 def write_skeleton_svg(path, centres, island_r, bridge_w, margin=4.0):
     """Write the skeleton silhouette (islands + chain bands) as an SVG in mm.
     Elements overlap; union in KiCad/Inkscape for a single outline."""
@@ -427,7 +470,13 @@ def main() -> None:
 
     svg = OUTDIR / f'fpc_skeleton_c{cid}.svg'
     write_skeleton_svg(svg, centres, ISLAND_R, BRIDGE_W)
-    print(f"  → {svg}  (island r={ISLAND_R}mm, band w={BRIDGE_W}mm)")
+    print(f"  → {svg}  (filled preview, island r={ISLAND_R}mm, band w={BRIDGE_W}mm)")
+
+    osvg = OUTDIR / f'fpc_skeleton_c{cid}_outline.svg'
+    if write_skeleton_outline_svg(osvg, centres, ISLAND_R, BRIDGE_W):
+        print(f"  → {osvg}  (unioned outline, fill:none → KiCad Edge.Cuts)")
+    else:
+        print("  (shapely not installed — outline SVG skipped; uv add shapely)")
     if args.show:
         plt.show()
     plt.close()
