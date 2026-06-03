@@ -142,12 +142,13 @@ uv run python shell-cad/scripts/generate_fpc_chain.py -c 0 --legend output/fpc_l
   - **CSV スクリプト配置** (★scope に既存): `generate_fpc_chain.py` の `flat_x/flat_y` + 各 island の向き + チェーン順を pcbnew API で自動配置・自動ブリッジ配線
 
 - **Q62b: マザーリングの N/S クロス + ゾーン数** — `N_DOUT → S_DIN` のクロスはリング内配線で吸収(② 確定)。ポゴゾーンは 5 経度 × (上面=北/下面=南)。ユーザー提示図は 4 回対称だったので 5 ゾーンへ要修正
-- **Q67 (確定): ポゴ実装基盤と電源 = 6 ピン DIP + FR4 補強材** (2026-06-02)
-  - DIP ポゴ (RTLECS 1.5A/pin) を inner_deck の **FR4 補強材**で支持(DIP + 補強材)
-  - **6 ピン `5V-GND-DIN-DOUT-GND-5V`**: 左3→始端/右3→終端で両端 2 枝給電 → 容量2倍・接点冗長・IR半減。スロット 12.7mm(5 zone × 周長で余裕)
-  - **全白禁止 + 輝度上限**運用(5V 容量に整合)
-  - **シリコン線+コネクタ案は不採用**(ホットスワップが崩れ組立煩雑)。電源補強は「広い GND/5V 銅ベタ + ポゴ 2 重化」で対応
-  - 残: 圧着力 6×75gf=450gf/cassette ×10=4.5kgf は [Q54](01-shell-cad.md) のテコ検証と併せて確認。電圧降下の主因は FPC 5V トレース幅 → DIN/DOUT 中央注入で最遠距離を半減
+- **Q67 (確定): inner_deck = 小型 FR4 PCB + 6 ピン DIP ポゴ + FPC 1 結合 tab** (2026-06-04)
+  - **方式 A 採用(inner_deck を小型 PCB 化)**: 上面=FPC 半田パッド6、下面=DIP ポゴ6(−Z→ ring)。挿抜力を rigid PCB が受け **FPC に応力が来ない**(ホットスワップ堅実)。方式 B(FPC+補強材直付け)は不採用、上位案 C(rigid-flex)は将来
+  - **FPC は 1 結合 tab(6 パッド)** を rim から ~90° 曲げて inner_deck 上面へ半田(flex-to-rigid)
+  - **6 ピン `5V-GND-DIN-DOUT-GND-5V`**: 左3→始端(DIN/LED01)/右3→終端(DOUT/LED80)。**5V/GND 両端 2 枝給電** → IR半減・容量2倍・冗長。データ隣=GND シールド
+  - inner_deck は **水平シェルフ(底面 Z=0)**(§2.6)、外形 ~16×8mm、固定=ダボ×2 + Φ2.2 ネジ(hex 交点)
+  - DIP ポゴ RTLECS 1.5A/pin・ストローク2.0mm・75gf・高7mm。**全白禁止+輝度上限**運用
+  - 残: 圧着力 6×75gf×10=4.5kgf は [Q54](01-shell-cad.md) のテコ検証と併せて確認
 
 **既存 open questions**
 
