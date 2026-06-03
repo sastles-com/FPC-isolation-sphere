@@ -13,7 +13,7 @@
 - **共通骨組み FPC** (10 カセット共通の 1 種類 Gerber、各 80 LED) の KiCad アートワーク作成
 - 一筆書きチェーン + polyhedral 展開図の生成 (`generate_fpc_chain.py`)
 - LED 配置データ ([`../shared/led_positions.csv`](../shared/led_positions.csv)、shell-cad が producer) からの **自動 LED 配置スクリプト**
-- 端子レイアウト (赤道 inner_deck の 6 パッド: 2×GND/2×5V/DIN/DOUT)
+- 端子レイアウト (赤道 inner_deck の 6 パッド: `5V-GND-DIN-DOUT-GND-5V`)
 - ガーバー出力までの一連の手順
 
 > **2026-06-02 設計変更**: 極専用 PCB (案 S4) は**廃止**。全 800 hex を共通 FPC に集約 (80 LED/cassette、5 ストリップ)。極部は南極=磁気端子 / 北極=装飾蓋で LED 無し。
@@ -41,7 +41,7 @@
 
 ### 配線・データチェーン (5 ストリップ構成)
 
-- 一筆書きの **DIN(start)・DOUT(end) は赤道中央で隣接** ([Q62](#open-questions--未確定事項))。inner_deck は **6 パッド = 2×GND/2×5V/DIN/DOUT**(回文配列、電源 2 重化)
+- 一筆書きの **DIN(start)・DOUT(end) は赤道中央で隣接** ([Q62](#open-questions--未確定事項))。inner_deck は **6 パッド = `5V-GND-DIN-DOUT-GND-5V`**(回文、データ隣=GND)。**左3→チェーン始端(DIN/LED01)/ 右3→終端(DOUT/LED80)**に接続 → 5V/GND を**バス両端から 2 枝給電** → IR ドロップ半減 + 容量2倍 + 接点冗長
 - N/S 共通 FPC の上下反転は **赤道マザーリング側のクロスルーティング (`N_DOUT → S_DIN`) で吸収** ([Q62b])
 - **5 並列ストリップ構成**:
   - Strip 1-5: 各 longitude slice (北 80 LED → 赤道マザーリングでクロス → 南 80 LED = **160 LED each**)
@@ -125,7 +125,7 @@ uv run python shell-cad/scripts/generate_fpc_chain.py -c 0 --legend output/fpc_l
 - **Q62 (実装済): DIN/DOUT 配置 = 赤道中央スタート + 隣接エンド** (2026-06-02)
   - **方針**: 赤道行の中央 hex を DIN (start)、その面隣接 hex を DOUT (end) とする一筆書き
   - **実装**: Warnsdorff 順 + バックトラックで確実探索(`generate_fpc_chain.py`)。cassette 0 で DIN=fi626 / DOUT=fi628 を確認
-  - **含意 (Q65/Q67 で確定)**: 1 カセットが赤道側に DIN・DOUT の**データ2端子** → inner_deck は **6 パッド (2×GND/2×5V/DIN/DOUT)**
+  - **含意 (Q65/Q67 で確定)**: 1 カセットが赤道側に DIN・DOUT の**データ2端子** → inner_deck は **6 パッド `5V-GND-DIN-DOUT-GND-5V`**
 - **Q63 (解決): 展開法 = polyhedral unfold(投影は不採用)** (2026-06-02)
   - カセット内側は**多面体**(平らな hex 面)なので、投影(equirect/sinusoidal)で近似する必要は無く、**チェーンに沿って共有辺をヒンジに 180° 展開**すれば **歪みゼロ**(実測 max 0.27%)
   - 曲率は除外された pentagon に集中 → hex のみの半ゴアはほぼ完全平面に展開
@@ -135,7 +135,7 @@ uv run python shell-cad/scripts/generate_fpc_chain.py -c 0 --legend output/fpc_l
   - **列スネーク**: 経度列ごとにジグザグ。視覚上整然だが一部ブリッジが面非隣接の可能性
   - 端点を「中央スタート+隣接エンド」に固定する Q62 と整合する経路生成が必要
 - **Q65 (確定): inner_deck パッド数 = 6** — DIN/DOUT 両方赤道 + 電源 2 重化
-  - **6 パッド = 2×GND / 2×5V / DIN / DOUT**(回文配列)。電源 2 重化は [Q67] の信頼性/電圧降下対策
+  - **6 パッド = `5V-GND-DIN-DOUT-GND-5V`**(回文、データ隣=GND)。左3→始端/右3→終端で **5V/GND 両端 2 枝給電** → IR 半減・容量2倍・冗長 (2026-06-04 確定)
   - [shell-cad Q56](01-shell-cad.md) / CLAUDE.md §2.6 / §2.7 と同期済
 - **Q66 (NEW): KiCad 配置ワークフロー** — legend 手配置 vs CSV スクリプト配置
   - **legend 手配置** (V1 実績): 平面展開図を下絵 (legend) にして KiCad で footprint を手置き
@@ -144,7 +144,7 @@ uv run python shell-cad/scripts/generate_fpc_chain.py -c 0 --legend output/fpc_l
 - **Q62b: マザーリングの N/S クロス + ゾーン数** — `N_DOUT → S_DIN` のクロスはリング内配線で吸収(② 確定)。ポゴゾーンは 5 経度 × (上面=北/下面=南)。ユーザー提示図は 4 回対称だったので 5 ゾーンへ要修正
 - **Q67 (確定): ポゴ実装基盤と電源 = 6 ピン DIP + FR4 補強材** (2026-06-02)
   - DIP ポゴ (RTLECS 1.5A/pin) を inner_deck の **FR4 補強材**で支持(DIP + 補強材)
-  - **6 ピン (2×GND/2×5V/DIN/DOUT)**: 電源 2 重化で容量 3A・接点冗長・電圧降下半減。スロット 12.7mm(5 zone × 周長で余裕)
+  - **6 ピン `5V-GND-DIN-DOUT-GND-5V`**: 左3→始端/右3→終端で両端 2 枝給電 → 容量2倍・接点冗長・IR半減。スロット 12.7mm(5 zone × 周長で余裕)
   - **全白禁止 + 輝度上限**運用(5V 容量に整合)
   - **シリコン線+コネクタ案は不採用**(ホットスワップが崩れ組立煩雑)。電源補強は「広い GND/5V 銅ベタ + ポゴ 2 重化」で対応
   - 残: 圧着力 6×75gf=450gf/cassette ×10=4.5kgf は [Q54](01-shell-cad.md) のテコ検証と併せて確認。電圧降下の主因は FPC 5V トレース幅 → DIN/DOUT 中央注入で最遠距離を半減
