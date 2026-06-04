@@ -305,7 +305,11 @@ R_POGO       = 41.25            # mm, pogo-row radius on the inner_deck PCB
 POGO_PITCH   = 2.54             # mm, 3-pad cluster pitch at the strip tip
 STRIP_LEN    = 15.0             # mm, long flexible lead from the endpoint island
 STRIP_W      = 3.0             # mm, strip (lead) width
-PAD_HEAD_M   = 1.3             # mm, margin around the 3-pad head
+# Rectangular pogo-header HEAD at the lead tip — kept SQUARE (not rounded) so a
+# rigid stiffener can be bonded there at fab (pogo press + solder need rigidity).
+HEAD_HALF_W  = 4.0             # mm, half-width ⟂ strip (covers 3 pads @2.54 + margin)
+HEAD_BACK    = 2.5             # mm, head extent back toward the strip from the tip
+HEAD_FRONT   = 3.5             # mm, head extent forward past the tip  → 8.0×6.0 rect
 FINGER_PADS  = {'start': ['5V', 'GND', 'DIN'],   # left 3  (chain begin / D1)
                 'end':   ['DOUT', 'GND', '5V']}  # right 3 (chain end   / D80)
 
@@ -335,8 +339,13 @@ def compute_fingers(chain, centres):
             c = tip + perp * ((k - 1) * POGO_PITCH)
             pads.append((lab, *to_k(c)))
         strip = [to_k(z) for z in _band_corners(base, tip, STRIP_W)]
-        out.append(dict(role=role, face=chain[idx],
-                        base=to_k(base), tip=to_k(tip), strip=strip, pads=pads))
+        # rectangular head (stiffener footprint) — corners CCW, kept sharp
+        head = [to_k(tip - dhat * HEAD_BACK + perp * HEAD_HALF_W),
+                to_k(tip + dhat * HEAD_FRONT + perp * HEAD_HALF_W),
+                to_k(tip + dhat * HEAD_FRONT - perp * HEAD_HALF_W),
+                to_k(tip - dhat * HEAD_BACK - perp * HEAD_HALF_W)]
+        out.append(dict(role=role, face=chain[idx], base=to_k(base), tip=to_k(tip),
+                        strip=strip, head=head, pads=pads))
     return out
 
 
@@ -370,15 +379,15 @@ def write_skeleton_outline_svg(path, centres, island_r, bridge_w, margin=4.0,
         cs = _band_corners(centres[i], centres[i + 1], bridge_w)
         geoms.append(Polygon([(c.real, c.imag) for c in cs]))
 
-    # fold-in the long flexible leads (strip band + 3-pad head) — KiCad→math
+    # fold-in the long flexible leads: strip band + SQUARE head (stiffener zone).
+    # The head stays a sharp rectangle (no buffering) so the stiffener footprint
+    # is clean; the strip joins it to the skeleton.  KiCad→math frame.
     fx_all = []
     for fg in (fingers or []):
-        sm = [(x + ox, oy - y) for x, y in fg['strip']]      # KiCad→math frame
-        geoms.append(Polygon(sm)); fx_all += sm
-        for _, x, y in fg['pads']:
-            mx, my = x + ox, oy - y
-            geoms.append(Point(mx, my).buffer(island_r, quad_segs=12))
-            fx_all.append((mx, my))
+        sm = [(x + ox, oy - y) for x, y in fg['strip']]      # strip band
+        hm = [(x + ox, oy - y) for x, y in fg['head']]       # square head
+        geoms.append(Polygon(sm)); geoms.append(Polygon(hm))
+        fx_all += sm + hm
     merged = unary_union(geoms).simplify(0.03, preserve_topology=True)
 
     polys = list(merged.geoms) if merged.geom_type == "MultiPolygon" else [merged]
@@ -619,6 +628,9 @@ def main() -> None:
         sc2 = [(x, -y) for x, y in fg['strip']]
         ax.add_patch(MplPoly(sc2, closed=True, fc='#ffe08a', ec='#aa7700',
                              lw=1.4, alpha=0.6, zorder=2.2))
+        hd = [(x, -y) for x, y in fg['head']]            # square stiffener head
+        ax.add_patch(MplPoly(hd, closed=True, fc='#ffd24d', ec='#aa7700',
+                             lw=1.6, alpha=0.7, zorder=2.3))
         for lab, x, y in fg['pads']:
             ax.add_patch(plt.Circle((x, -y), 0.8, fc=pad_col.get(lab, '#88f'),
                                     ec='k', lw=0.5, zorder=6))
@@ -648,11 +660,13 @@ def main() -> None:
         'pad_order_assembled': '5V-GND-DIN-DOUT-GND-5V',
         'strip_len_mm': STRIP_LEN, 'strip_w_mm': STRIP_W,
         'pogo': {'radius_mm': R_POGO, 'pitch_mm': POGO_PITCH, 'n': 6},
+        'head_note': 'rectangular head = stiffener zone (rigid backing at fab)',
         'fingers': [{'role': f['role'], 'face': f['face'],
                      'base': f['base'], 'tip': f['tip'], 'strip': f['strip'],
+                     'head': f['head'], 'connector': {'start': 'J1', 'end': 'J2'}[f['role']],
                      'pads': [{'net': l, 'x': x, 'y': y} for l, x, y in f['pads']]}
                     for f in fingers]}, indent=1))
-    print(f"  → {tjson}  (2 flexible {STRIP_LEN}mm leads: strip + 3-pad head)")
+    print(f"  → {tjson}  (2 flexible {STRIP_LEN}mm leads: strip + square stiffener head)")
 
     osvg = OUTDIR / f'fpc_skeleton_c{cid}_outline.svg'
     ojson = OUTDIR / f'fpc_outline_c{cid}.json'

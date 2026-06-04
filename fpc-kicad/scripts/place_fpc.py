@@ -30,17 +30,17 @@ TAB_JSON     = os.path.join(REPO, f"output/fpc_tab_c{CID}.json")
 
 LED_PREFIX = "D"          # D{order+1}
 CAP_PREFIX = "C"          # C{order+1}(= 同 index の LED のバイパス)
-J1_REF     = "J1"
+# 2 本の 3 ピンヘッダ(ポゴピン用): J1=START リード(5V-GND-DIN) / J2=END リード(DOUT-GND-5V)
+TAB_REFS   = {"start": "J1", "end": "J2"}
+HEADER_ANCHOR_PIN = "2"   # ★ 3 ピンの真ん中(pin2)を配置原点にする
 
 MOVE_LED = True
 MOVE_CAP = True
-MOVE_J1  = False          # ← 旧: LED01 へ移動。新: PLACE_TAB で 2 本指へ分配
-PLACE_TAB = True          # fpc_tab_c<N>.json を読み、J1 の 6 pad を 2 本指へ再配置
-DRAW_FINGER_EDGES = True  # 指の外形を Edge.Cuts に追加
+PLACE_TAB = True          # fpc_tab_c<N>.json を読み、J1/J2 を pin2 基準で配置
+HEADER_ANGLE_OFFSET = 0.0 # ヘッダ向き補正(deg、必要なら 180 等)
 CAP_TO_BACK     = True    # 0603 を裏面(B.Cu)に揃える(既に裏なら何もしない)
 ROTATE_TO_CHAIN = True    # bridge 角度(次 LED 方向)に回転
 FP_ANGLE_OFFSET = 0.0     # フットプリント基準向き補正(deg)
-J1_OFFSET_MM    = (0.0, -4.0)   # J1 を LED01 から少しずらす(重なり回避)
 
 DRAW_EDGE_CUTS        = True
 CLEAR_EDGE_CUTS_FIRST = True
@@ -103,52 +103,50 @@ def draw_edge(board, rings):
 
 
 def place_tab(board):
-    """Reposition J1's 6 pads onto the two fold-out fingers (by net) and draw
-    the finger outlines on Edge.Cuts.  Nets stay intact (pads keep their net);
-    we only move pad geometry.  fpc_tab_c<N>.json uses the same KiCad frame
-    (origin=LED01, Y-down, mm) as the LED placements.
+    """Place the two 3-pin pogo headers J1 (START lead) and J2 (END lead) using
+    pin 2 (the MIDDLE pin) as the anchor → pin2 lands on the lead's middle pad,
+    the row oriented along pin1→pin3 (= pads[0]→pads[2]).
 
-      START finger pads: 5V · GND · DIN     (chain begin / D1)
-      END   finger pads: DOUT · GND · 5V    (chain end   / D80)
-    Assembled on the inner_deck → 5V-GND-DIN-DOUT-GND-5V."""
+      J1 START pads: 5V · GND · DIN     (chain begin / D1)
+      J2 END   pads: DOUT · GND · 5V    (chain end   / D80)
+    The lead outlines (strip + square stiffener head) come from the unioned
+    Edge.Cuts (fpc_outline_c<N>.json) — drawn in run(), not here."""
     with open(TAB_JSON) as fh:
         tab = json.load(fh)
-    # flat list of pad targets: (net_kicad, x, y)
     NET_ALIAS = {"5V": "+5V"}                       # json '5V' → board net '+5V'
-    targets = []                                    # [(net, x, y, used)]
-    for fg in tab["fingers"]:
-        for p in fg["pads"]:
-            targets.append([NET_ALIAS.get(p["net"], p["net"]),
-                            float(p["x"]), float(p["y"]), False])
-
-    fp = board.FindFootprintByReference(J1_REF)
-    if fp is None:
-        print(f"  ⚠ {J1_REF} not found — skip tab"); return 0
     nset = 0
-    for pad in fp.Pads():
-        net = pad.GetNetname()                      # '+5V' / 'GND' / 'DIN' / 'DOUT'
-        for t in targets:                           # first unused target on this net
-            if not t[3] and t[0] == net:
-                pad.SetPosition(vec(t[1], t[2])); t[3] = True; nset += 1
-                break
-    leftover = [t for t in targets if not t[3]]
-    if leftover:
-        print(f"  ⚠ {len(leftover)} tab pad(s) unmatched to a J1 net: "
-              f"{[t[0] for t in leftover]}")
-    print(f"  tab: repositioned {nset}/6 J1 pads onto the two fingers")
-
-    nseg = 0
-    if DRAW_FINGER_EDGES:
-        w = mm(EDGE_WIDTH_MM)
-        for fg in tab["fingers"]:
-            pts = [vec(x, y) for x, y in fg["outline"]]
-            for a, b in zip(pts, pts[1:] + pts[:1]):
-                seg = pcbnew.PCB_SHAPE(board)
-                seg.SetShape(pcbnew.SHAPE_T_SEGMENT)
-                seg.SetStart(a); seg.SetEnd(b)
-                seg.SetLayer(pcbnew.Edge_Cuts); seg.SetWidth(w)
-                board.Add(seg); nseg += 1
-        print(f"  tab: drew {nseg} finger Edge.Cuts segments")
+    for fg in tab["fingers"]:
+        ref = TAB_REFS.get(fg["role"])
+        fp = board.FindFootprintByReference(ref)
+        if fp is None:
+            print(f"  ⚠ {ref} ({fg['role']}) not found — skip"); continue
+        pads = fg["pads"]                           # [pin1, pin2, pin3]
+        p0, p1, p2 = pads[0], pads[1], pads[2]
+        # orientation: pin1→pin3 row direction (KiCad Y-down → math via -dy), the
+        # 1xNN header's native pin axis is +Y → subtract 90°.
+        ang = (math.degrees(math.atan2(-(p2["y"] - p0["y"]), p2["x"] - p0["x"]))
+               - 90.0 + HEADER_ANGLE_OFFSET)
+        fp.SetOrientationDegrees(ang)
+        anchor = next((pd for pd in fp.Pads()
+                       if pd.GetNumber() == HEADER_ANCHOR_PIN), None)
+        if anchor is None:
+            print(f"  ⚠ {ref} has no pin {HEADER_ANCHOR_PIN}"); continue
+        off = anchor.GetPosition() - fp.GetPosition()    # pad2 offset (post-rotate)
+        fp.SetPosition(vec(p1["x"], p1["y"]) - off)       # pin2 → middle pad
+        # assign nets pin n → pads[n-1] (if that net exists on the board)
+        for pd in fp.Pads():
+            try:
+                idx = int(pd.GetNumber()) - 1
+            except ValueError:
+                continue
+            if 0 <= idx < 3:
+                net = board.FindNet(NET_ALIAS.get(pads[idx]["net"], pads[idx]["net"]))
+                if net is not None:
+                    pd.SetNet(net)
+        nset += 1
+        print(f"  {ref}: pin2→({p1['x']},{p1['y']}) ang={ang:.1f}°  "
+              f"pins {[p['net'] for p in pads]}")
+    print(f"  tab: placed {nset}/2 pogo headers (J1/J2, anchored on pin{HEADER_ANCHOR_PIN})")
     return nset
 
 
@@ -168,27 +166,22 @@ def run(board=None):
                          to_back=CAP_TO_BACK)
             ncap += ok; miss += (not ok)
 
-    nj1 = 0
-    if MOVE_J1:
-        ox, oy = leds[0][1] + J1_OFFSET_MM[0], leds[0][2] + J1_OFFSET_MM[1]
-        nj1 = int(move_fp(board, J1_REF, ox, oy, 0.0))
-
     nseg = 0
     if DRAW_EDGE_CUTS:
         if CLEAR_EDGE_CUTS_FIRST:
             clear_edge_cuts(board)
-        with open(OUTLINE_JSON) as fh:
+        with open(OUTLINE_JSON) as fh:     # includes the leads (strip + square head)
             nseg = draw_edge(board, json.load(fh)["rings"])
 
     ntab = 0
     if PLACE_TAB:
-        ntab = place_tab(board)            # draws finger Edge.Cuts after skeleton
+        ntab = place_tab(board)            # J1/J2 pogo headers, pin2-anchored
 
     pcbnew.Refresh()
-    print(f"  moved D={nled} C={ncap} J1={nj1} tab_pads={ntab}  (not found: {miss})")
-    print(f"  Edge.Cuts segs={nseg} (+finger segs)")
+    print(f"  moved D={nled} C={ncap} headers={ntab}  (not found: {miss})")
+    print(f"  Edge.Cuts segs={nseg} (skeleton + 2 leads)")
     print("  ✓ 既存 footprint をネット保持のまま移動+回転(LED1=原点)")
-    print("  次: DIN(D1→START指)/DOUT(D80→END指)/電源を配線 → DRC")
+    print("  次: DIN/DOUT/電源を J1/J2 へ配線 → DRC")
 
 
 run()
