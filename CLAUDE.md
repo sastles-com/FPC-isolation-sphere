@@ -86,13 +86,14 @@ This file is the working context Claude should load before assisting on this pro
 
 <fpc_fixation>
 - **接着剤は使わない (zero adhesive)** — 前作の全損トラウマに直結するため絶対禁止。
-- 固定法: **ハイブリッド** (2026-06-01 確定) — 赤道近傍は `back_gore` (薄ハーフゴア裏当て・スナップ留め) で機械面圧、残り領域は **アセテートテープ (片面)**。
-  - 骨組み形状の肉抜き部から、テープの糊が外殻プラスチックに直接接触してロックする。
-  - アセテートテープの厚み (~0.2 mm) は球体内部に逃げるため LED 高さに影響しない。
-  - `back_gore` は機械式・無糊。ポゴ反力による FPC 浮きを抑える。詳細は [`docs/01-shell-cad.md` §カセット裏面構造](docs/01-shell-cad.md#cassette-back-side-structures--カセット裏面構造-inner_deck--back_gore--ring_claw)。
+- 固定法: **全面 `back_gore`(機械式・テープレス狙い)** (2026-06-04 方針更新、試作検証待ち)。
+  - `back_gore` = **薄い (1mm) Goldberg ハーフゴア**を FPC 裏に当て、カセット側へ押し付けて FPC を挟持。アセテートテープは**予備/任意**に降格(接着剤ゼロは不変)
+  - **0603 逃げ**: back_gore の **hex 穴を各 LED と一致**させ、FPC 裏の 0603 を穴に収める → 押し圧は島間 web/bridge にのみ掛かる
+  - **保持**: hex ギャップに分散したスナップ/ネジで back_gore を引き、均一圧で FPC 浮きを防ぐ(必要なら gore 半径を僅かに大きくして予圧)。inner_deck/ペンタねじ/ダボ位置は開口
+  - FPC を外向きに押す → LED がラッパ穴に座り位置決めも兼ねる。詳細は [`docs/01-shell-cad.md` §カセット裏面構造](docs/01-shell-cad.md#cassette-back-side-structures--カセット裏面構造-inner_deck--back_gore--ring_claw)
 - 外殻裏面に **`anchor_post` (位置決めピン/突起)** を肉抜きギャップに生やし、FPC 基準穴で位置決め + 後付けパーツの固定先を兼ねる。
 - **NEVER 3M両面テープ提案 / NEVER 瞬間接着剤・エポキシ.** これらは過去の失敗履歴。
-- **Adhesive-free design. Acetate single-sided tape applied across the FPC back covers both the FPC and the surrounding shell, locking them together through the FPC cutouts.**
+- **Adhesive-free: a thin (1mm) Goldberg half-gore (`back_gore`) presses the FPC onto the shell mechanically; acetate tape is optional backup. Hex holes clear the back-side 0603 caps.**
 </fpc_fixation>
 
 ### 2.6 Equator connection / 赤道接続
