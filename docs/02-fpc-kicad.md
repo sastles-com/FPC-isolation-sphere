@@ -50,6 +50,33 @@
 - ESP32 側: **5 並列 PIO/RMT 出力** で各ストリップを独立駆動 (fault isolation 効果)
 - ポゴピン: 2.54 ピッチ **DIP (RTLECS, 1.5A/pin, ストローク 2.0mm, 75gf, 高 7mm)** を inner_deck の **FR4 補強材**で支持。**6 ピン**(電源 2 重化、スロット 12.7mm)。全 60 ポゴ ([Q67] 確定)
 
+### inner_deck タブ = 2 本の折り出し 3 パッド指 (2026-06-04 確定)
+
+一筆書きの **自由端 (DIN=チェーン始端 / DOUT=チェーン終端) からのみ** タブを生やす。中央や中間 hex から生やすと平面パターン上で骨組みと **重なって製造不能** になるため。
+
+- **2 本の独立した 3 パッド指**:
+  - **START 指**(D1=DIN から): `5V · GND · DIN`(= 6 パッド列の左 3)
+  - **END 指**(D80=DOUT から): `DOUT · GND · 5V`(= 右 3)
+  - FPC 上では別々。**組立時に剛体 inner_deck 上で隣り合って初めて 6 パッド** `5V-GND-DIN-DOUT-GND-5V`(回文)になる
+- **各指は自端点のローカルで完結** → 相手側へ伸びない → FPC は重ならない。平面で D1-D80 が離れていても **3D で巻けば赤道で再会**(剛体 inner_deck が両者を橋渡し)
+- **折り**: 各指は **自分の赤道エッジ (z=0 cut) を折り線**に ~90° 内側へ倒れ、**z=0 水平**で inner_deck 上面パッド(ポゴ列の真上、r≈41.25)へ着地。スクリプトが 3D 折りを検証(両指とも z≈0・r≈41.25 を確認)
+- **端点 = 赤道接触 hex 必須**: cassette 0 は **DIN=face 626(赤道中心)/ DOUT=face 627(赤道 −y 隣)**。両方 z≈2.6 で赤道に接するため両指が素直に折れる。
+  - ⚠️ 旧 DOUT=628(z=7.75, 赤道から 1 段内側)は END 指が赤道まで他 hex を横切る → **重なるので不可**。**628 → 627 へ変更**(Hamiltonian path 成立を確認: `626→627` OK)
+- **6 パッド列の中心**: 2 指の中点(接線方向、経度中心から約 −3.2mm オフセット)。10 カセット共通 Gerber なのでマザーリングの 5 ゾーンも同オフセットで整合
+- **pad 順は自由設計** → 仕様の回文 `5V-GND-DIN-DOUT-GND-5V`(データ隣=GND シールド・両端 2 枝給電)に確定
+
+#### スクリプト (`generate_fpc_chain.py`) 2026-06-04 追加機能
+
+- `--din <face> --dout <face>`: 端点を強制指定(省略時は赤道中心隣接を自動選択)
+- `compute_fingers()`: 2 指の **折り線・外形・6 パッド xy(KiCad フレーム)** を生成し、**3D で 90° 折り→水平→ポゴ列真上** を検証
+- 新規出力 **`output/fpc_tab_c<N>.json`**(指の外形 + パッド位置、KiCad frame、origin=LED01)→ フェーズ2 `place_fpc.py` が消費
+- 実行: `uv run python shell-cad/scripts/generate_fpc_chain.py -c 0 --din 626 --dout 627`
+
+### カセットの合同性 (2026-06-04 検証)
+
+- **北半球 5 枚 (cas 0..4)**: 純粋な **Z 軸 72° 回転で完全合同**(検証済)→ 1 設計でそのまま回転配置 OK
+- **北 ↔ 南**: 5 経度 × 半球の分割は C5 軸縦置きで南が 36° スタッガ。北⇔南は単純な回転では一致せず([Q68](#open-questions--未確定事項) で chirality 要確定)。CLAUDE.md の方針どおり **共通 Gerber を上下反転 + マザーリング `N_DOUT→S_DIN` クロスで吸収**(回文 pad 順が前提)
+
 ### 非極ペンタゴン位置のクランプねじ穴 (案 K_new)
 
 - **位置**: 各共通 FPC に 1 箇所、緯度 ±26.57° の非極 pent 中央
@@ -122,10 +149,10 @@ uv run python shell-cad/scripts/generate_fpc_chain.py -c 0 --legend output/fpc_l
 
 **チェーン経路関連 (2026-06-02 新規。Q56→Q62 等、shell-cad の Q56-Q61 との衝突回避でリナンバー)**
 
-- **Q62 (実装済): DIN/DOUT 配置 = 赤道中央スタート + 隣接エンド** (2026-06-02)
-  - **方針**: 赤道行の中央 hex を DIN (start)、その面隣接 hex を DOUT (end) とする一筆書き
-  - **実装**: Warnsdorff 順 + バックトラックで確実探索(`generate_fpc_chain.py`)。cassette 0 で DIN=fi626 / DOUT=fi628 を確認
-  - **含意 (Q65/Q67 で確定)**: 1 カセットが赤道側に DIN・DOUT の**データ2端子** → inner_deck は **6 パッド `5V-GND-DIN-DOUT-GND-5V`**
+- **Q62 (確定・更新): DIN/DOUT = 両方とも赤道接触 hex** (2026-06-04 更新)
+  - **方針**: DIN=赤道中心 hex、DOUT=その**赤道接触隣接 hex**(両方 z≈0 に接する)→ 2 本の折り出し指が各々の赤道エッジで素直に折れる
+  - **実装**: cassette 0 で **DIN=fi626 / DOUT=fi627**(旧 fi628 は z=7.75 で 1 段内側だったため 627 に変更)。`--din/--dout` で強制可
+  - **含意 (Q65/Q67 で確定)**: 1 カセットが赤道側に DIN・DOUT の**データ2端子** → inner_deck は **6 パッド `5V-GND-DIN-DOUT-GND-5V`**(2 本の 3 パッド指が組立時に合体)
 - **Q63 (解決): 展開法 = polyhedral unfold(投影は不採用)** (2026-06-02)
   - カセット内側は**多面体**(平らな hex 面)なので、投影(equirect/sinusoidal)で近似する必要は無く、**チェーンに沿って共有辺をヒンジに 180° 展開**すれば **歪みゼロ**(実測 max 0.27%)
   - 曲率は除外された pentagon に集中 → hex のみの半ゴアはほぼ完全平面に展開
@@ -137,9 +164,11 @@ uv run python shell-cad/scripts/generate_fpc_chain.py -c 0 --legend output/fpc_l
 - **Q65 (確定): inner_deck パッド数 = 6** — DIN/DOUT 両方赤道 + 電源 2 重化
   - **6 パッド = `5V-GND-DIN-DOUT-GND-5V`**(回文、データ隣=GND)。左3→始端/右3→終端で **5V/GND 両端 2 枝給電** → IR 半減・容量2倍・冗長 (2026-06-04 確定)
   - [shell-cad Q56](01-shell-cad.md) / CLAUDE.md §2.6 / §2.7 と同期済
-- **Q66 (NEW): KiCad 配置ワークフロー** — legend 手配置 vs CSV スクリプト配置
-  - **legend 手配置** (V1 実績): 平面展開図を下絵 (legend) にして KiCad で footprint を手置き
-  - **CSV スクリプト配置** (★scope に既存): `generate_fpc_chain.py` の `flat_x/flat_y` + 各 island の向き + チェーン順を pcbnew API で自動配置・自動ブリッジ配線
+- **Q66 (進行中): KiCad 配置ワークフロー = CSV スクリプト配置** (フェーズ2, 2026-06-04)
+  - `place_fpc.py` が `fpc_unfold_c<N>.csv`(LED 配置)+ `fpc_outline_c<N>.json`(Edge.Cuts)+ **`fpc_tab_c<N>.json`(2 本指 + 6 パッド)** を消費
+  - DOUT=627 へ変更したため **既存ボードの D1..D80 を全再配置**が必要。J1(6 ピン縦)を START/END の 3 パッド ×2 に置換し pad 順を回文へ修正、DIN/DOUT/電源を配線
+
+- **Q68 (NEW): 北↔南カセットの chirality** — 北半球 5 枚は Z 回転で合同確認済。北⇔南が回転(proper)か鏡像(improper/enantiomorph)かは未確定。鏡像なら共通 Gerber を物理反転して使う際の **LED 実装面の向き**を要検討(回文 pad + マザーリングクロスで電気的には吸収可だが、両面実装の表裏が問題になりうる)
 
 - **Q62b: マザーリングの N/S クロス + ゾーン数** — `N_DOUT → S_DIN` のクロスはリング内配線で吸収(② 確定)。ポゴゾーンは 5 経度 × (上面=北/下面=南)。ユーザー提示図は 4 回対称だったので 5 ゾーンへ要修正
 - **Q67 (確定): inner_deck = 小型 FR4 PCB + 6 ピン DIP ポゴ + FPC 1 結合 tab** (2026-06-04)

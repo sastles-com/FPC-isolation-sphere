@@ -230,6 +230,121 @@ def path_unfold(V, F, chain):
     return centres, polys
 
 
+# ── inner_deck tab fingers (fold-out 3-pad connectors at DIN & DOUT) ──────
+#
+# Each chain endpoint (DIN=start, DOUT=end) grows ONE small 3-pad finger that,
+# when the FPC is wrapped onto the cassette, folds ~90° at its own equator edge
+# (the z=0 cut of that endpoint face) and lies HORIZONTAL in the z=0 plane on top
+# of the inner_deck — directly over the pogo row.  The two fingers are
+# independent (each local to its endpoint, neither reaches toward the other →
+# no FPC overlap) and only become a 6-pad row on the rigid inner_deck at
+# assembly:  START = 5V·GND·DIN  |  DOUT·GND·5V = END  → 5V-GND-DIN-DOUT-GND-5V.
+
+R_POGO       = 41.25            # mm, pogo-row radius on the inner_deck (= FIX_RADIUS)
+POGO_PITCH   = 2.54             # mm
+FINGER_LEN   = 7.0              # mm, developed length of the fold-out finger
+PAD_OFFSET   = 5.0              # mm from fold line to the pad-row centre (developed)
+FINGER_PADS  = {'start': ['5V', 'GND', 'DIN'],   # left 3  (chain begin)
+                'end':   ['DOUT', 'GND', '5V']}  # right 3 (chain end)
+
+
+def _z0_cut(V, F, fi, poly):
+    """z=0 crossing segment of face `fi`: returns (Ff, Pf) where Ff=[2 flat
+    complex], Pf=[2 3D np] — the fold line in the flat net and in 3D."""
+    face = F[fi]; n = len(face); ff, pf = [], []
+    for k in range(n):
+        a, b = face[k], face[(k + 1) % n]
+        za, zb = V[a][2], V[b][2]
+        if (za > 0) != (zb > 0):
+            t = za / (za - zb)
+            ff.append(poly[k] + (poly[(k + 1) % n] - poly[k]) * t)
+            pf.append(V[a] + (V[b] - V[a]) * t)
+    return (ff, pf) if len(ff) == 2 else (None, None)
+
+
+def compute_fingers(V, F, chain, centres, polys, lon_cen):
+    """Build the two fold-out 3-pad fingers (flat outline + pad xy + 3D landing).
+
+    Strategy: define ONE 6-pad row on the inner_deck (along the cassette
+    tangential at radius R_POGO, z=0, centred between the two endpoints), then
+    INVERSE-fold each finger's assigned 3 pads back into the flat net so they
+    land exactly on that row at assembly → clean 5V-GND-DIN-DOUT-GND-5V.
+
+    Returns list of dicts (one per role): role, face, fold_flat[2],
+    outline_kicad[…], pads[(label,kx,ky)], land3d[(label,X,Y,Z,r)], tangential_ok."""
+    rg = np.array([math.cos(lon_cen), math.sin(lon_cen), 0.0])   # radial @ centre
+    tg = np.array([-math.sin(lon_cen), math.cos(lon_cen), 0.0])  # tangential
+    rad = lambda p: math.hypot(p[0], p[1])
+    ox, oy = centres[0].real, centres[0].imag                    # KiCad origin=LED01
+    to_k = lambda z: (round(z.real - ox, 4), round(-(z.imag - oy), 4))
+
+    # ── pass 1: fold frame per endpoint ───────────────────────────────────
+    frames = {}
+    for role, seq in (('start', 0), ('end', len(chain) - 1)):
+        fi = chain[seq]; poly = polys[seq]
+        ff, pf = _z0_cut(V, F, fi, poly)
+        if ff is None:
+            print(f"  ⚠ finger {role}: face {fi} has no z=0 crossing — endpoint "
+                  f"is not equator-touching (fold-out finger needs one)")
+            continue
+        Fa, Fb = ff
+        Pa, Pb = pf[0].astype(float), pf[1].astype(float)
+        cen = sum(poly) / len(poly)
+        uhat = (Fb - Fa) / abs(Fb - Fa)
+        nrm = uhat * 1j
+        if ((((Fa + Fb) / 2) - cen) * nrm.conjugate()).real < 0:
+            nrm = -nrm                                   # outward (away from face)
+        eu = (Pb - Pa); eu /= np.linalg.norm(eu)
+        ev = np.cross(eu, np.array([0.0, 0.0, 1.0])); ev /= np.linalg.norm(ev)
+        if rad(Pa + ev) > rad(Pa):
+            ev = -ev                                     # +ev points radially INWARD
+        radial = np.array([Pa[0], Pa[1], 0.0]); radial /= np.linalg.norm(radial)
+        tangential_ok = abs(float(eu @ radial)) < 0.30 and abs(float(eu[2])) < 0.30
+        s_mid = float(((Pa + Pb) / 2) @ tg)              # tangential coord of fold
+        frames[role] = dict(fi=fi, Fa=Fa, Fb=Fb, Pa=Pa, Pb=Pb, uhat=uhat, nrm=nrm,
+                            eu=eu, ev=ev, tangential_ok=tangential_ok, s_mid=s_mid)
+    if len(frames) < 2:
+        print("  ⚠ need BOTH endpoints equator-touching for fold-out fingers")
+        return []                                        # incomplete; caller skips
+
+    # ── 6-pad row: centred between the two fold lines, along tangential ────
+    sc = 0.5 * (frames['start']['s_mid'] + frames['end']['s_mid'])
+    hi = 'start' if frames['start']['s_mid'] >= frames['end']['s_mid'] else 'end'
+    lo = 'end' if hi == 'start' else 'start'
+    # pad order, +s → -s : 5V GND DIN | DOUT GND 5V  (data pair adjacent at centre)
+    row = [( 2.5, hi, '5V'), ( 1.5, hi, 'GND'), ( 0.5, hi, 'DIN' if hi=='start' else 'DOUT'),
+           (-0.5, lo, 'DOUT' if lo=='end' else 'DIN'), (-1.5, lo, 'GND'), (-2.5, lo, '5V')]
+
+    # ── pass 2: inverse-fold each finger's 3 pads into the flat net ────────
+    out = []
+    for role in ('start', 'end'):
+        fr = frames[role]; Fa, uhat, nrm = fr['Fa'], fr['uhat'], fr['nrm']
+        Pa, eu, ev = fr['Pa'], fr['eu'], fr['ev']
+        pads, land3d, st = [], [], []
+        for k, who, lab in row:
+            if who != role:
+                continue
+            T = rg * R_POGO + tg * (sc + k * POGO_PITCH)   # 3D pad target (z=0)
+            s = float((T - Pa) @ eu); t = float((T - Pa) @ ev)
+            Fp = Fa + uhat * s + nrm * t                   # inverse fold → flat
+            pads.append((lab, *to_k(Fp))); st.append((s, t))
+            land3d.append((lab, round(float(T[0]), 3), round(float(T[1]), 3),
+                           0.0, round(rad(T), 3)))
+        # outline = (s,t)-box enclosing the fold line (t≈0) and the 3 pads + margin
+        m = 1.3
+        s_Fb = ((fr['Fb'] - Fa) * uhat.conjugate()).real     # fold endpoint along uhat
+        ss = [0.0, s_Fb] + [s for s, _ in st]
+        tt = [0.0] + [t for _, t in st]
+        s0, s1 = min(ss) - m, max(ss) + m
+        t0, t1 = -0.6, max(tt) + m
+        box = [(s0, t0), (s1, t0), (s1, t1), (s0, t1)]
+        outline_kicad = [to_k(Fa + uhat * s + nrm * t) for s, t in box]
+        out.append(dict(role=role, face=fr['fi'], pads=pads, land3d=land3d,
+                        outline_kicad=outline_kicad, tangential_ok=fr['tangential_ok'],
+                        fold_flat=[to_k(fr['Fa']), to_k(fr['Fb'])]))
+    return out
+
+
 # ── Skeleton FPC outline (islands + chain bands) ──────────────────────────
 
 def _band_corners(p0, p1, w):
@@ -328,6 +443,10 @@ def main() -> None:
                     help='Cassette ID 0‥9 (0‥4=north, 5‥9=south). Default 0.')
     ap.add_argument('--legend', type=str, default=None,
                     help='Read an existing legend CSV (order,face_idx) instead of solving.')
+    ap.add_argument('--din', type=int, default=None,
+                    help='Force DIN (chain start) face index. Default: auto (equator-centre).')
+    ap.add_argument('--dout', type=int, default=None,
+                    help='Force DOUT (chain end) face index. Default: auto (adjacent equator hex).')
     ap.add_argument('--show', action='store_true', help='Open matplotlib window.')
     args = ap.parse_args()
 
@@ -369,6 +488,21 @@ def main() -> None:
             sys.exit(1)
         method = f'legend ({Path(args.legend).name})'
         print(f"  Loaded legend: {len(chain)} faces  DIN=fi{chain[0]} DOUT=fi{chain[-1]}")
+    elif args.din is not None and args.dout is not None:
+        if args.din not in hex_set or args.dout not in hex_set:
+            print(f"  ✗ --din/--dout must be hex faces of cassette {cid}: {sorted(hex_set)[:5]}…")
+            sys.exit(1)
+        chain = solve_chain(adj, args.din, args.dout, hex_set)
+        if chain is None:
+            print(f"  ✗ no Hamiltonian path DIN=fi{args.din} → DOUT=fi{args.dout}")
+            sys.exit(1)
+        method = f'forced DIN=fi{args.din} DOUT=fi{args.dout}'
+        with legend_path.open('w', newline='') as fh:
+            wr = csv.writer(fh); wr.writerow(['order', 'face_idx'])
+            for i, fidx in enumerate(chain):
+                wr.writerow([i, fidx])
+        print(f"  ✓ {method}")
+        print(f"  → {legend_path}")
     else:
         chain, method = None, ''
         for din, dout in pick_endpoints(hexs, adj, lon_cen, fi_to):
@@ -416,6 +550,21 @@ def main() -> None:
     flag = '⚠ possible overlap' if mind < 0.55 * med else 'ok'
     print(f"  min non-adjacent island gap {mind:.2f}mm (median bridge {med:.2f}mm) → {flag}"
           + (f"  faces {worst}" if flag.startswith('⚠') else ''))
+
+    # 4b ── inner_deck tab fingers (fold-out 3-pad connectors) ─────────────
+    fingers = compute_fingers(V, F, chain, centres, polys, lon_cen)
+    print(f"\n  inner_deck fingers ({len(fingers)}/2):")
+    for fg in fingers:
+        zs = [z for *_ , z, _ in fg['land3d']]
+        rs = [r for *_ , r in fg['land3d']]
+        print(f"    {fg['role']:5s} face{fg['face']}: pads "
+              f"{[p[0] for p in fg['pads']]}  "
+              f"fold⟂tangential={'✓' if fg['tangential_ok'] else '⚠'}")
+        for lab, X, Y, Z, R in fg['land3d']:
+            print(f"        {lab:4s} → 3D ({X:6.2f},{Y:6.2f},{Z:5.2f})  r={R:5.2f}"
+                  f"  {'(z≈0 horizontal ✓)' if abs(Z) < 0.05 else ''}")
+        if max(abs(z) for z in zs) < 0.05 and min(rs) > R_POGO - 3 and max(rs) < R_POGO + 5:
+            print(f"        → folds horizontal over pogo row (target r≈{R_POGO}) ✓")
 
     # 5 ── Export unfolded CSV ─────────────────────────────────────────────
     csv_path = OUTDIR / f'fpc_unfold_c{cid}.csv'
@@ -473,6 +622,21 @@ def main() -> None:
     ax.scatter(xs[-1], ys[-1], s=260, c='#ff4444', marker='D', zorder=5,
                edgecolors='k', label=f'DOUT (fi{chain[-1]})')
 
+    # fold-out tab fingers (flat outline + pads), plotted in the unfold frame
+    # (note: plot uses math y-up; fingers are stored KiCad y-down → flip back)
+    pad_col = {'5V': '#cc2222', 'GND': '#222222', 'DIN': '#00aa44', 'DOUT': '#ff4444'}
+    for fg in fingers:
+        oc = [(x, -y) for x, y in fg['outline_kicad']]
+        ax.add_patch(MplPoly(oc, closed=True, fc='#ffe08a', ec='#aa7700',
+                             lw=1.6, alpha=0.6, zorder=2.2))
+        for lab, x, y in fg['pads']:
+            ax.add_patch(plt.Circle((x, -y), 0.8, fc=pad_col.get(lab, '#88f'),
+                                    ec='k', lw=0.5, zorder=6))
+            ax.text(x, -y, lab, fontsize=5, ha='center', va='center',
+                    color='white', zorder=7)
+        fx = [p[0] for p in fg['fold_flat']]; fy = [-p[1] for p in fg['fold_flat']]
+        ax.plot(fx, fy, '-', color='orange', lw=3, zorder=5)
+
     ax.set_aspect('equal'); ax.autoscale_view()
     ax.set_title(f'Cassette {cid} - polyhedral unfold (tenkai-zu)\n'
                  f'{len(chain)} hex · {method}\n'
@@ -487,6 +651,21 @@ def main() -> None:
     svg = OUTDIR / f'fpc_skeleton_c{cid}.svg'
     write_skeleton_svg(svg, centres, ISLAND_R, BRIDGE_W)
     print(f"  → {svg}  (filled preview, island r={ISLAND_R}mm, band w={BRIDGE_W}mm)")
+
+    # tab fingers → JSON (KiCad frame, origin=LED01, Y-down, mm) for place_fpc.py
+    import json
+    tjson = OUTDIR / f'fpc_tab_c{cid}.json'
+    tjson.write_text(json.dumps({
+        'frame': 'kicad (origin=LED01, Y-down, mm)',
+        'pad_order_assembled': '5V-GND-DIN-DOUT-GND-5V',
+        'pogo': {'radius_mm': R_POGO, 'pitch_mm': POGO_PITCH, 'n': 6},
+        'fingers': [{'role': f['role'], 'face': f['face'],
+                     'fold_line': f['fold_flat'], 'outline': f['outline_kicad'],
+                     'pads': [{'net': l, 'x': x, 'y': y} for l, x, y in f['pads']],
+                     'land3d': [{'net': l, 'x': X, 'y': Y, 'z': Z, 'r': R}
+                                for l, X, Y, Z, R in f['land3d']]}
+                    for f in fingers]}, indent=1))
+    print(f"  → {tjson}  (2 fold-out 3-pad fingers: outline + pads, KiCad frame)")
 
     osvg = OUTDIR / f'fpc_skeleton_c{cid}_outline.svg'
     ojson = OUTDIR / f'fpc_outline_c{cid}.json'
