@@ -26,6 +26,7 @@ REPO = "/Users/katano/work/FPC-isolation-sphere"
 CID  = 0
 CSV          = os.path.join(REPO, f"output/fpc_unfold_c{CID}.csv")
 OUTLINE_JSON = os.path.join(REPO, f"output/fpc_outline_c{CID}.json")
+TAB_JSON     = os.path.join(REPO, f"output/fpc_tab_c{CID}.json")
 
 LED_PREFIX = "D"          # D{order+1}
 CAP_PREFIX = "C"          # C{order+1}(= 同 index の LED のバイパス)
@@ -33,7 +34,9 @@ J1_REF     = "J1"
 
 MOVE_LED = True
 MOVE_CAP = True
-MOVE_J1  = True
+MOVE_J1  = False          # ← 旧: LED01 へ移動。新: PLACE_TAB で 2 本指へ分配
+PLACE_TAB = True          # fpc_tab_c<N>.json を読み、J1 の 6 pad を 2 本指へ再配置
+DRAW_FINGER_EDGES = True  # 指の外形を Edge.Cuts に追加
 CAP_TO_BACK     = True    # 0603 を裏面(B.Cu)に揃える(既に裏なら何もしない)
 ROTATE_TO_CHAIN = True    # bridge 角度(次 LED 方向)に回転
 FP_ANGLE_OFFSET = 0.0     # フットプリント基準向き補正(deg)
@@ -99,6 +102,56 @@ def draw_edge(board, rings):
     return nseg
 
 
+def place_tab(board):
+    """Reposition J1's 6 pads onto the two fold-out fingers (by net) and draw
+    the finger outlines on Edge.Cuts.  Nets stay intact (pads keep their net);
+    we only move pad geometry.  fpc_tab_c<N>.json uses the same KiCad frame
+    (origin=LED01, Y-down, mm) as the LED placements.
+
+      START finger pads: 5V · GND · DIN     (chain begin / D1)
+      END   finger pads: DOUT · GND · 5V    (chain end   / D80)
+    Assembled on the inner_deck → 5V-GND-DIN-DOUT-GND-5V."""
+    with open(TAB_JSON) as fh:
+        tab = json.load(fh)
+    # flat list of pad targets: (net_kicad, x, y)
+    NET_ALIAS = {"5V": "+5V"}                       # json '5V' → board net '+5V'
+    targets = []                                    # [(net, x, y, used)]
+    for fg in tab["fingers"]:
+        for p in fg["pads"]:
+            targets.append([NET_ALIAS.get(p["net"], p["net"]),
+                            float(p["x"]), float(p["y"]), False])
+
+    fp = board.FindFootprintByReference(J1_REF)
+    if fp is None:
+        print(f"  ⚠ {J1_REF} not found — skip tab"); return 0
+    nset = 0
+    for pad in fp.Pads():
+        net = pad.GetNetname()                      # '+5V' / 'GND' / 'DIN' / 'DOUT'
+        for t in targets:                           # first unused target on this net
+            if not t[3] and t[0] == net:
+                pad.SetPosition(vec(t[1], t[2])); t[3] = True; nset += 1
+                break
+    leftover = [t for t in targets if not t[3]]
+    if leftover:
+        print(f"  ⚠ {len(leftover)} tab pad(s) unmatched to a J1 net: "
+              f"{[t[0] for t in leftover]}")
+    print(f"  tab: repositioned {nset}/6 J1 pads onto the two fingers")
+
+    nseg = 0
+    if DRAW_FINGER_EDGES:
+        w = mm(EDGE_WIDTH_MM)
+        for fg in tab["fingers"]:
+            pts = [vec(x, y) for x, y in fg["outline"]]
+            for a, b in zip(pts, pts[1:] + pts[:1]):
+                seg = pcbnew.PCB_SHAPE(board)
+                seg.SetShape(pcbnew.SHAPE_T_SEGMENT)
+                seg.SetStart(a); seg.SetEnd(b)
+                seg.SetLayer(pcbnew.Edge_Cuts); seg.SetWidth(w)
+                board.Add(seg); nseg += 1
+        print(f"  tab: drew {nseg} finger Edge.Cuts segments")
+    return nset
+
+
 def run(board=None):
     board = board or pcbnew.GetBoard()
     leds = load_leds(CSV)
@@ -127,10 +180,15 @@ def run(board=None):
         with open(OUTLINE_JSON) as fh:
             nseg = draw_edge(board, json.load(fh)["rings"])
 
+    ntab = 0
+    if PLACE_TAB:
+        ntab = place_tab(board)            # draws finger Edge.Cuts after skeleton
+
     pcbnew.Refresh()
-    print(f"  moved D={nled} C={ncap} J1={nj1}  (not found: {miss})")
-    print(f"  Edge.Cuts segs={nseg}")
+    print(f"  moved D={nled} C={ncap} J1={nj1} tab_pads={ntab}  (not found: {miss})")
+    print(f"  Edge.Cuts segs={nseg} (+finger segs)")
     print("  ✓ 既存 footprint をネット保持のまま移動+回転(LED1=原点)")
+    print("  次: DIN(D1→START指)/DOUT(D80→END指)/電源を配線 → DRC")
 
 
 run()
