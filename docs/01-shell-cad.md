@@ -93,7 +93,7 @@
   - **特徴**:
     - Boolean / Solidify 不要 → exact watertight (mesh.validate でクリーン)、出力は数秒
     - 隣接カセット同士の境界頂点が完全一致 → mate がぴったり (zero gap)
-    - 5 回回転対称 + N/S 鏡像対称が出力 mesh stats に出る (全カセット同じ verts/faces 数)
+    - 全カセット同じ verts/faces 数(北 5 = Z 軸 72° 回転、北↔南 = 赤道軸 180° 回転で合同。proper 回転のみ・鏡像ではない、[`02-fpc-kicad.md` Q68](02-fpc-kicad.md)参照)
   - 分類規則は [`blender_visualize_cassettes.py`](../shell-cad/scripts/blender_visualize_cassettes.py) の `classify()` と完全一致 → 可視化 `goldberg_t81_cassettes.blend` の色分けと 1:1 対応
   - **2 極 pent (極先端ペンタゴン × 2)** はカセットから除外 → 南極=磁気端子 / 北極=装飾蓋 のキャップ開口として残る (極専用 PCB は廃止)
   - **シリンダー (`pent_axes` / `hex_axes`) について**:

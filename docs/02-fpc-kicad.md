@@ -31,7 +31,7 @@
 
 - **共通骨組み FPC × 10 枚** (Gerber 1 種)
   - 各カセット **80 LED** (= カセットに属する全 hex。極先端 hex も truncate せず含む)
-  - 形状: 円形ランド (LED, r≈2.25mm) + 帯 (ブリッジ, 3mm) の骨組み (≠ ベタ三角ゴア)
+  - 形状: 円形ランド (LED, `ISLAND_R`=2.4mm) + 帯 (ブリッジ, `BRIDGE_W`=2.4mm) の骨組み (≠ ベタ三角ゴア)
   - 実装: **表 WS2812C-2020 / 裏 0603 バイパスコンデンサ**
   - **非極ペンタゴン位置に Φ2.7 ねじ通し穴 + M2.5 沈み込み座ぐり** — 案 K_new の M2.5 真鍮意匠ねじ用 (各 FPC に 1 個ずつ)
   - メリット: 球面追従性、熱抜け、テープ糊が外殻と直接シール
@@ -50,27 +50,25 @@
 - ESP32 側: **5 並列 PIO/RMT 出力** で各ストリップを独立駆動 (fault isolation 効果)
 - ポゴピン: 2.54 ピッチ **DIP (RTLECS, 1.5A/pin, ストローク 2.0mm, 75gf, 高 7mm)** を inner_deck の **FR4 補強材**で支持。**6 ピン**(電源 2 重化、スロット 12.7mm)。全 60 ポゴ ([Q67] 確定)
 
-### inner_deck タブ = 2 本の折り出し 3 パッド指 (2026-06-04 確定)
+### inner_deck タブ = 2 本の撓みリード(3 パッド + 矩形ヘッド) (2026-06-05 確定)
 
-一筆書きの **自由端 (DIN=チェーン始端 / DOUT=チェーン終端) からのみ** タブを生やす。中央や中間 hex から生やすと平面パターン上で骨組みと **重なって製造不能** になるため。
+一筆書きの **自由端 (DIN=チェーン始端 / DOUT=チェーン終端) からのみ** リードを生やす。中央や中間 hex から生やすと平面パターン上で骨組みと **重なって製造不能** になるため。
 
-- **2 本の独立した 3 パッド指**:
-  - **START 指**(D1=DIN から): `5V · GND · DIN`(= 6 パッド列の左 3)
-  - **END 指**(D80=DOUT から): `DOUT · GND · 5V`(= 右 3)
+- **2 本の独立した 3 パッドリード**:
+  - **START リード**(DIN から, KiCad ref **J1**): `5V · GND · DIN`(= 6 パッド列の左 3)
+  - **END リード**(DOUT から, KiCad ref **J2**): `DOUT · GND · 5V`(= 右 3)
   - FPC 上では別々。**組立時に剛体 inner_deck 上で隣り合って初めて 6 パッド** `5V-GND-DIN-DOUT-GND-5V`(回文)になる
-- **各指は自端点のローカルで完結** → 相手側へ伸びない → FPC は重ならない。平面で D1-D80 が離れていても **3D で巻けば赤道で再会**(剛体 inner_deck が両者を橋渡し)
-- **折り**: 各指は **自分の赤道エッジ (z=0 cut) を折り線**に ~90° 内側へ倒れ、**z=0 水平**で inner_deck 上面パッド(ポゴ列の真上、r≈41.25)へ着地。スクリプトが 3D 折りを検証(両指とも z≈0・r≈41.25 を確認)
-- **端点 = 赤道接触 hex 必須**: cassette 0 は **DIN=face 626(赤道中心)/ DOUT=face 627(赤道 −y 隣)**。両方 z≈2.6 で赤道に接するため両指が素直に折れる。
-  - ⚠️ 旧 DOUT=628(z=7.75, 赤道から 1 段内側)は END 指が赤道まで他 hex を横切る → **重なるので不可**。**628 → 627 へ変更**(Hamiltonian path 成立を確認: `626→627` OK)
-- **6 パッド列の中心**: 2 指の中点(接線方向、経度中心から約 −3.2mm オフセット)。10 カセット共通 Gerber なのでマザーリングの 5 ゾーンも同オフセットで整合
+- **各リードは自端点のローカルで完結** → 相手側へ伸びない → FPC は重ならない
+- **形状**: 端点島から外側(赤道余白)へ **~15mm の撓み帯(`STRIP_LEN`/`STRIP_W`)** を伸ばし、**撓めて**ポゴ PCB へ接続。先端は **矩形ヘッド 8×6mm(`HEAD_*`)= 補強材(stiffener)貼付ゾーン**(角丸でなく鋭角、ポゴ圧+半田の剛性確保)、その中に 3 パッド @2.54。
+- **端点 = 赤道接触 hex(両端)**: 分割を殻に合わせた後、cassette 0 で **DIN=fi409 / DOUT=fi418**(両方 z≈2.6 で赤道接触・隣接)を自動選択。
 - **pad 順は自由設計** → 仕様の回文 `5V-GND-DIN-DOUT-GND-5V`(データ隣=GND シールド・両端 2 枝給電)に確定
+- **配置基準**: KiCad で J1/J2(3 ピンヘッダ)を **pin2(中央=GND)を原点**に配置(`place_fpc.py`)。
 
-#### スクリプト (`generate_fpc_chain.py`) 2026-06-04 追加機能
+#### スクリプト機能 (`generate_fpc_chain.py` / `place_fpc.py`, 2026-06-05)
 
-- `--din <face> --dout <face>`: 端点を強制指定(省略時は赤道中心隣接を自動選択)
-- `compute_fingers()`: 2 指の **折り線・外形・6 パッド xy(KiCad フレーム)** を生成し、**3D で 90° 折り→水平→ポゴ列真上** を検証
-- 新規出力 **`output/fpc_tab_c<N>.json`**(指の外形 + パッド位置、KiCad frame、origin=LED01)→ フェーズ2 `place_fpc.py` が消費
-- 実行: `uv run python shell-cad/scripts/generate_fpc_chain.py -c 0 --din 626 --dout 627`
+- `generate_fpc_chain.py`: `--din/--dout`(端点強制)、`compute_fingers()`(2 リードの strip + 矩形ヘッド + 3 パッド生成)、出力 **`output/fpc_tab_c<N>.json`**(`connector` J1/J2 込み、KiCad frame)
+- `place_fpc.py`: CSV から C/D 配置 + J1/J2 を **pin2 基準**で配置 + Edge.Cuts(リード込み)。**`EDGE_ONLY=True`** で C/D/J を動かさず Edge.Cuts だけ再描画可。
+- 実行: `uv run python shell-cad/scripts/generate_fpc_chain.py -c 0`(端点は自動)
 
 ### 平面化 = MDS(2026-06-05、Q63 の polyhedral unfold を撤回)
 
@@ -106,51 +104,53 @@
 
 ![V1 骨組み FPC 試作](images/fpc_prototype_v1.jpg)
 
-> **ゴール (2026-06-02)**: この骨組み FPC をカセット裏面に貼ったとき、**FPC 上の LED 位置がカセットの hex ラッパ穴と一致**するように展開する ([Q63](#open-questions--未確定事項) 投影法の核心)。
+> **ゴール**: この骨組み FPC をカセット裏面に貼ったとき、**FPC 上の LED 位置がカセットの hex ラッパ穴と一致**するように平面化する(MDS で穴ズレ最大 0.41mm を達成、[Q63](#open-questions--未確定事項))。
 
-### チェーン + 展開図スクリプト `generate_fpc_chain.py` (2026-06-02 実装、polyhedral unfold へ刷新)
+### チェーン + 平面化スクリプト `generate_fpc_chain.py` (2026-06-05 現行、MDS 平面化)
 
-**スクリプト**: `shell-cad/scripts/generate_fpc_chain.py`(numpy + matplotlib、bpy 非依存)
-**用途**: 1 ハーフゴアカセット分の一筆書き + **多面体展開図(歪みゼロ)** + 骨組み FPC 外形を生成。
+**スクリプト**: `shell-cad/scripts/generate_fpc_chain.py`(numpy + matplotlib + shapely、bpy 非依存)
+**用途**: 1 ハーフゴアカセット分の一筆書き + **MDS 平面化** + 骨組み FPC 外形 + ポゴリードを生成。
 
-#### アルゴリズム
+> ⚠️ 旧記述(2026-06-02「polyhedral unfold = 歪みゼロ」)は**撤回**。半ゴアは非可展面(曲率 ≈ 54°)で、チェーン展開は全島間で最大 14.7mm ずれ殻に巻けなかった。下記 MDS に置換([§平面化 = MDS](#平面化--mds2026-06-05q63-の-polyhedral-unfold-を撤回) / [Q63](#open-questions--未確定事項))。
 
-- **一筆書き(確実化)**: Warnsdorff 順 + **バックトラック DFS** → start/end 指定の Hamiltonian path を確実に発見
-  - 既定端点: **DIN = 赤道行で経度中央に最も近い hex / DOUT = その面隣接 hex**(中央・隣接、[Q62](#open-questions--未確定事項))
-- **展開(展開図)= polyhedral unfold**: カセット内側は**多面体**(平らな hex 面)なので、チェーンに沿って共有辺をヒンジに**二面角 180° へ開く**ことで **歪みゼロ展開**。投影(equirect/sinusoidal)は不要に([Q63](#open-questions--未確定事項) 解決)
-  - 各 hex は最良近似平面に planarize(Goldberg hex は僅かに非平面)
-  - 曲率は除外された pentagon に集中 → hex のみの半ゴアはほぼ完全に平らに展開
-- **骨組み FPC 外形**: 各 island に円(既定 r=`ISLAND_R`=2.25mm)+ チェーン連結に帯(既定 w=`BRIDGE_W`=3.0mm)
+#### アルゴリズム(現行)
 
-#### 2 段ワークフロー(Warnsdorff 素案 → legend 手修正)
+- **一筆書き**: Warnsdorff 順 + バックトラック DFS + **連結性プルーニング**(未訪問が連結かつ end 到達可を毎手チェック)→ 制約の強いカセットでも高速発見
+  - 既定端点: **DIN/DOUT は両方とも赤道接触 hex**([`pick_endpoints`])。各リードが赤道エッジで折れる。`--din/--dout` で強制可
+- **平面化 = 古典 MDS**: 島の 3D 距離行列を 2D へ最小歪み埋込 → **外側視点へ剛体整列**(向き・手系を正す, det=+1)。穴との対応 最大 0.41mm
+- **ポゴリード**: 両端から ~15mm の撓み帯 + 先端に**矩形ヘッド(補強材ゾーン)**+ 3 パッド(START `5V·GND·DIN` / END `DOUT·GND·5V`)
+- **骨組み外形**: 各 island に円(`ISLAND_R`=2.4mm)+ チェーン帯(`BRIDGE_W`=2.4mm)+ リードを 1 シルエットに union
+
+#### 2 段ワークフロー(自動素案 → legend 手修正)
 
 ```bash
-# ① 素案生成 → legend CSV 書き出し
+# ① 素案生成(両端赤道接触を自動選択)→ legend CSV
 uv run python shell-cad/scripts/generate_fpc_chain.py -c 0
-# ② legend を手修正後、それを使って再展開(Warnsdorff 再計算せず)
+# ② legend を手修正後、それで再生成
 uv run python shell-cad/scripts/generate_fpc_chain.py -c 0 --legend output/fpc_legend_c0.csv
 ```
 
-- legend = **編集可能な順序ファイル**(`order, face_idx`)。Phase 2 の Blender モーダル・エディタ(クリック順記録、note 記事方式)が上書き保存する単一の真実
-- 展開は legend の順序にそのまま従う → 手修正がそのまま展開図/外形に反映
+- **全 10 カセットは 1 種の Gerber**(proper 回転で合同, [Q68](#open-questions--未確定事項))。`-c 0` のみ設計すれば足りる。
+- ⚠️ **カセット分割は殻(`blender_make_cassettes.py`)と一致必須** = `AZ_SHIFT_DEG=54°`(以前 36° でズレ 16/80 hex 不一致 → 紙がトレース不能だった)。
 
 #### 出力(`output/` トップレベル、gitignore)
 
 - `fpc_legend_c<N>.csv` — `order, face_idx`(編集可能な一筆書き順序)
-- `fpc_unfold_c<N>.csv` — `order, face_idx, cassette_id, x3d/y3d/z3d, flat_x/flat_y, is_din, is_dout`
-- `fpc_unfold_c<N>.png` — 展開図(hex 多角形 + 骨組み island/帯 + チェーン + DIN/DOUT)
-- `fpc_skeleton_c<N>.svg` — 骨組み外形(KiCad/Inkscape で union 可、mm 単位)
+- `fpc_unfold_c<N>.csv` — `order, face_idx, cassette_id, x3d/y3d/z3d, flat_x/flat_y, kicad_x/y, is_din, is_dout`
+- `fpc_unfold_c<N>.png` — 平面図(島 + 骨組み帯 + チェーン + リード + 矩形ヘッド + DIN/DOUT)
+- `fpc_skeleton_c<N>_outline.svg` + `fpc_outline_c<N>.json` — 骨組み外形(リード込み、KiCad Edge.Cuts 用)
+- `fpc_tab_c<N>.json` — 2 リード(strip + 矩形ヘッド + 3 パッド、`connector` J1/J2)
 
-#### 2026-06-02 実行結果 (cassette 0)
+#### 実行結果 (cassette 0, 2026-06-05)
 
 | 項目 | 値 |
 |---|---|
 | hex 面数 | 80 |
-| 一筆書き | Warnsdorff+backtrack、DIN=fi626 / DOUT=fi628(隣接・赤道中央) |
-| 全ブリッジ面隣接 | ✓ |
-| **展開歪み (flat vs 3D弦)** | **平均 0.23% / 最大 0.27%** ← 実質ゼロ(多面体展開の正しさを実証) |
-| 自己重なり | min gap 5.28mm / median 6.11mm → 重なり無し |
-| 骨組み | island r=2.25mm(hex 内接円 2.42–3.28mm に収まる)+ 帯 3mm |
+| 一筆書き | Warnsdorff+連結プルーニング、**DIN=fi409 / DOUT=fi418**(両赤道接触・隣接) |
+| **平面化歪み(全島間 距離)** | 平均 0.48mm / 最大 3.70mm(2.3%、非可展の不可避分。ブリッジ撓みで吸収) |
+| **穴との対応(外側視点)** | **平均 0.11mm / 最大 0.41mm** ← 各島が各穴に座る指標 |
+| 自己重なり | min gap 4.81mm / median 5.81mm → 重なり無し |
+| 骨組み | island r=2.4mm + 帯 2.4mm、リード 15mm + 矩形ヘッド 8×6mm |
 
 ## Open questions / 未確定事項
 
@@ -158,14 +158,14 @@ uv run python shell-cad/scripts/generate_fpc_chain.py -c 0 --legend output/fpc_l
 
 **チェーン経路関連 (2026-06-02 新規。Q56→Q62 等、shell-cad の Q56-Q61 との衝突回避でリナンバー)**
 
-- **Q62 (確定・更新): DIN/DOUT = 両方とも赤道接触 hex** (2026-06-04 更新)
-  - **方針**: DIN=赤道中心 hex、DOUT=その**赤道接触隣接 hex**(両方 z≈0 に接する)→ 2 本の折り出し指が各々の赤道エッジで素直に折れる
-  - **実装**: cassette 0 で **DIN=fi626 / DOUT=fi627**(旧 fi628 は z=7.75 で 1 段内側だったため 627 に変更)。`--din/--dout` で強制可
-  - **含意 (Q65/Q67 で確定)**: 1 カセットが赤道側に DIN・DOUT の**データ2端子** → inner_deck は **6 パッド `5V-GND-DIN-DOUT-GND-5V`**(2 本の 3 パッド指が組立時に合体)
-- **Q63 (解決): 展開法 = polyhedral unfold(投影は不採用)** (2026-06-02)
-  - カセット内側は**多面体**(平らな hex 面)なので、投影(equirect/sinusoidal)で近似する必要は無く、**チェーンに沿って共有辺をヒンジに 180° 展開**すれば **歪みゼロ**(実測 max 0.27%)
-  - 曲率は除外された pentagon に集中 → hex のみの半ゴアはほぼ完全平面に展開
-  - equirect/sinusoidal は不採用(滑らかな球前提だった)。測地的最適化は不要
+- **Q62 (確定・更新): DIN/DOUT = 両方とも赤道接触 hex** (2026-06-05 更新)
+  - **方針**: DIN=赤道中心 hex、DOUT=その**赤道接触隣接 hex**(両方 z≈0 に接する)→ 2 本の折り出しリードが各々の赤道エッジで素直に折れる
+  - **実装**: 分割を殻に合わせた後(`AZ_SHIFT_DEG=54°`)、cassette 0 で **DIN=fi409 / DOUT=fi418**(両赤道接触・隣接)を自動選択。`--din/--dout` で強制可。旧 fi626/fi627/fi628 は分割不一致時(36°)の値で無効。
+  - **含意 (Q65/Q67 で確定)**: 1 カセットが赤道側に DIN・DOUT の**データ2端子** → inner_deck は **6 パッド `5V-GND-DIN-DOUT-GND-5V`**(2 本の 3 パッドリードが組立時に合体)
+- **Q63 (撤回 → MDS へ置換, 2026-06-05): 展開法 = 古典 MDS** (旧: polyhedral unfold)
+  - ❌ 旧結論「多面体なので歪みゼロ展開」は**誤り**。半ゴアは非可展面(囲む Gauss 曲率 ≈ 54°)で、チェーン蛇行ヒンジ展開は**全島間で最大 14.7mm** ずれ殻に巻けない(「歪み 0.26%」はチェーン隣接のみ見た誤指標)。
+  - ✅ **採用: 古典 MDS**(全島間 3D 距離を 2D へ最小歪み埋込)+ 外側視点へ剛体整列。全島間誤差 平均 0.48mm/最大 3.70mm、**穴との対応 最大 0.41mm**。残差はブリッジ撓みで吸収。
+  - 投影(equirect/sinusoidal)は依然不採用(MDS が距離最適)。詳細は本文 [§平面化 = MDS](#平面化--mds2026-06-05q63-の-polyhedral-unfold-を撤回)。
 - **Q64: チェーンパターンの規則性** — Warnsdorff vs 列スネーク
   - **Warnsdorff** (現状): 全ブリッジ面隣接 (距離 ≈ 5.3–6.5 mm)、経路は不規則
   - **列スネーク**: 経度列ごとにジグザグ。視覚上整然だが一部ブリッジが面非隣接の可能性
@@ -175,7 +175,7 @@ uv run python shell-cad/scripts/generate_fpc_chain.py -c 0 --legend output/fpc_l
   - [shell-cad Q56](01-shell-cad.md) / CLAUDE.md §2.6 / §2.7 と同期済
 - **Q66 (進行中): KiCad 配置ワークフロー = CSV スクリプト配置** (フェーズ2, 2026-06-04)
   - `place_fpc.py` が `fpc_unfold_c<N>.csv`(LED 配置)+ `fpc_outline_c<N>.json`(Edge.Cuts)+ **`fpc_tab_c<N>.json`(2 本指 + 6 パッド)** を消費
-  - DOUT=627 へ変更したため **既存ボードの D1..D80 を全再配置**が必要。J1(6 ピン縦)を START/END の 3 パッド ×2 に置換し pad 順を回文へ修正、DIN/DOUT/電源を配線
+  - 端点・分割変更で **D1..D80 を全再配置**(`place_fpc.py`)。**J1/J2(3 ピン ×2)を pin2 基準**で配置済。残: DIN/DOUT/電源の配線 → DRC。`EDGE_ONLY` で外形だけ再描画可
 
 - **Q68 (確定 2026-06-05、訂正): 北↔南は proper 回転で合同 → FPC は 1 種で OK**
   - **厳密検証**(重心保存 O(3) 写像を網羅): cas0(北)→cas5(南) は **赤道面内の軸(方位 −18°=カセット中心)まわり 180° 回転、det=+1・残差 0.0000mm・全単射 80/80**。cas0→cas1..9 すべて proper(残差 ≤0.11mm)。**鏡像ではない。**
