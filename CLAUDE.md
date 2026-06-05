@@ -72,11 +72,11 @@ This file is the working context Claude should load before assisting on this pro
 - **実装面**: **表面に WS2812C-2020 (LED)、裏面に 0603 チップコンデンサ (各 LED のバイパス)**。
   - 裏面に 0603 が出っ張るため、`back_gore` (裏当て) は **0603 を逃がす凹み/開口** が必要 (詳細 [`docs/01-shell-cad.md` §カセット裏面構造](docs/01-shell-cad.md#cassette-back-side-structures--カセット裏面構造-inner_deck--back_gore--ring_claw))。
 - メリット: 3D 球面に追従しやすく反発力が小さい / 熱が中空内部へ抜ける / 肉抜き部分から外殻と直接シールできる。
-- **Gerber は 2 種** = **北 (cassette 0) + 南 (cassette 5)**、各 5 枚発注 (計 10)。北↔南は鏡像 (enantiomorph) で proper 回転では一致しないため 1 種では不可 (2026-06-05 検証確定、[`docs/02-fpc-kicad.md`](docs/02-fpc-kicad.md))。北 5 枚は c0 を 72° 回転、南 5 枚は c5 を 72° 回転で共通化。
+- **Gerber は 1 種を 10 枚発注して全カセットに使い回す**。10 カセットは **全て proper 回転で合同**(2026-06-05 厳密検証: 北↔南は赤道軸まわり 180° 回転、det=+1・残差 0.0000mm・全単射。鏡像ではない)。北 5 枚=Z 軸 72° 回転、南 5 枚=赤道軸 180° 回転 + 72°。LED は proper 回転で常に外向き。端子回文 + マザーリング `N_DOUT→S_DIN` クロスが 180° 回転時の DIN/DOUT 入替を吸収。([`docs/02-fpc-kicad.md`](docs/02-fpc-kicad.md) Q68)
 - **極専用 PCB は廃止** (2026-06-02)。10 カセット + ペンタゴンねじ留め構造の採用に伴い、極周辺への別基板配置をやめ、**全 800 hex を共通 FPC に集約**。
 - 各カセット FPC は **80 LED** (= カセットに属する全 hex)。極先端 hex も truncate せず各カセットの一筆書きに含む。
   - 各カセットに **非極ペンタゴン 1 個** が含まれ、その位置は LED ではなく **M2.5 クランプねじの貫通穴** になる ([§2.8](#28-pole-assembly--球体コア--短-pillar--2--極-pcb--キャップ-案-s4--案-k_new) 参照)。
-- **Two skeleton FPC Gerbers: north (c0) + south (c5) mirror, 5 each (no polar PCB). Per-cassette LED count: 80 (all hexes; 1 pentagon position becomes the M2.5 screw through-hole).**
+- **One common skeleton FPC Gerber × 10 (all cassettes congruent by PROPER rotation, verified — not mirror; no polar PCB). Per-cassette LED count: 80 (all hexes; 1 pentagon position becomes the M2.5 screw through-hole).**
 - **LED 総数: 800** = 共通 FPC hex 80 × 10 (全 hex)
   - LED 非搭載のペンタゴン (12 個・全て LED 無し): 非極 pent 10 個 (M2.5 クランプねじ穴) + 極 pent 2 個 (南極=磁気端子 / 北極=装飾蓋)
 - データチェーン: **5 ストリップ** = 5 縦縞 (各 **160 LED = 80 × 2**、北カセット → 赤道マザーリングでクロス → 南カセット)。極ストリップは無し。ESP32 は **5 並列出力**。
@@ -230,7 +230,7 @@ CLAUDE が勝手に決めず、必ず確認すること。
 - 出力: 各カセット用 STL ファイル × 10 (もしくは共通 1 種類を回転コピー)。
 
 ### 4.2 FPC 回路設計 (KiCad)
-- ターゲット: 骨組み FPC **2 種類** (北 c0 + 南 c5 鏡像、各 5 枚)。`generate_fpc_chain.py -c 0` / `-c 5` で生成。
+- ターゲット: 骨組み FPC **1 種類**(Gerber 1 セットを 10 枚、全カセット proper 回転で共通)。`generate_fpc_chain.py -c 0` で生成(他カセットは回転コピー)。
 - 端子配置は **左右対称 (回文)** にして、上下反転問題をマザーリング側クロス配線で吸収。
 - LED 配置データは Blender 側スクリプトと共有する (CSV か JSON で頂点座標をやり取り)。
 
