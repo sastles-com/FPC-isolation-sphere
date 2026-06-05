@@ -177,7 +177,11 @@ uv run python shell-cad/scripts/generate_fpc_chain.py -c 0 --legend output/fpc_l
   - `place_fpc.py` が `fpc_unfold_c<N>.csv`(LED 配置)+ `fpc_outline_c<N>.json`(Edge.Cuts)+ **`fpc_tab_c<N>.json`(2 本指 + 6 パッド)** を消費
   - DOUT=627 へ変更したため **既存ボードの D1..D80 を全再配置**が必要。J1(6 ピン縦)を START/END の 3 パッド ×2 に置換し pad 順を回文へ修正、DIN/DOUT/電源を配線
 
-- **Q68 (NEW): 北↔南カセットの chirality** — 北半球 5 枚は Z 回転で合同確認済。北⇔南が回転(proper)か鏡像(improper/enantiomorph)かは未確定。鏡像なら共通 Gerber を物理反転して使う際の **LED 実装面の向き**を要検討(回文 pad + マザーリングクロスで電気的には吸収可だが、両面実装の表裏が問題になりうる)
+- **Q68 (確定 2026-06-05): 北↔南は鏡像 → FPC は 2 種設計**
+  - 検証: 北 cas0→cas1..4 は proper Z 回転で合同 / cas0→南は **improper(鏡像, det=−1)**。proper 回転では一致しない(実変換の行列式で確認)
+  - 1 Gerber 両面実装案(両面 D + via 共有 + cap 逃げ)は成立するが、WS2812 の非対称ピン配置で裏面専用フットプリント要・via80・cap 置場喪失・結局 2 バリアント実装 → 利点僅少で却下
+  - **採用: 北=`-c 0` / 南=`-c 5` を別 Gerber**。各々ネイティブ生成すると正しい向き(MDS の外側視点整列で det=+1、LED が正面)。overlay 検証で穴ズレ 最大 0.41mm(北南とも)
+  - 北 5 枚 = c0 を 72° 回転、南 5 枚 = c5 を 72° 回転で共通化(CLAUDE.md §2.4)
 
 - **Q62b: マザーリングの N/S クロス + ゾーン数** — `N_DOUT → S_DIN` のクロスはリング内配線で吸収(② 確定)。ポゴゾーンは 5 経度 × (上面=北/下面=南)。ユーザー提示図は 4 回対称だったので 5 ゾーンへ要修正
 - **Q67 (確定): inner_deck = 小型 FR4 PCB + 6 ピン DIP ポゴ + FPC 1 結合 tab** (2026-06-04)
