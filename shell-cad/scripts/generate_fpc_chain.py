@@ -62,7 +62,8 @@ OUTDIR  = Path('output')          # top-level output/ (gitignored)
 # Skeleton FPC outline (unfolded): a circular island per hex + a band per
 # chain bridge.  Tunable.
 ISLAND_R = 2.4  # mm, LED island (round land) radius
-BRIDGE_W = 3.0   # mm, connecting band width (along the one-stroke chain)
+# BRIDGE_W = 3.0   # mm, connecting band width (along the one-stroke chain)
+BRIDGE_W = 2.4   # mm, connecting band width (along the one-stroke chain)
 
 
 # ── Face helpers ───────────────────────────────────────────────────────────

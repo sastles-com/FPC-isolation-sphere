@@ -34,6 +34,9 @@ CAP_PREFIX = "C"          # C{order+1}(= 同 index の LED のバイパス)
 TAB_REFS   = {"start": "J1", "end": "J2"}
 HEADER_ANCHOR_PIN = "2"   # ★ 3 ピンの真ん中(pin2)を配置原点にする
 
+# ★ EDGE_ONLY=True: C/D/J を一切動かさず Edge.Cuts だけ再描画(外形だけ更新したい時)
+EDGE_ONLY = True
+
 MOVE_LED = True
 MOVE_CAP = True
 PLACE_TAB = True          # fpc_tab_c<N>.json を読み、J1/J2 を pin2 基準で配置
@@ -45,6 +48,8 @@ FP_ANGLE_OFFSET = 0.0     # フットプリント基準向き補正(deg)
 DRAW_EDGE_CUTS        = True
 CLEAR_EDGE_CUTS_FIRST = True
 EDGE_WIDTH_MM         = 0.10
+DRAW_SILK             = True    # 外形と同じ線を F.SilkS にも描画(視認/組立ガイド)
+SILK_WIDTH_MM         = 0.1
 # ------------------------------------------------------------------------------
 
 
@@ -82,14 +87,17 @@ def move_fp(board, ref, x, y, ang, to_back=None):
     return True
 
 
-def clear_edge_cuts(board):
+def clear_outline(board, layers):
+    """Remove board-level PCB_SHAPE drawings on the given layers (footprint silk
+    is untouched — those belong to footprints, not board drawings)."""
     for d in list(board.GetDrawings()):
-        if d.GetLayer() == pcbnew.Edge_Cuts:
+        if d.GetLayer() in layers:
             board.Remove(d)
 
 
-def draw_edge(board, rings):
-    w = mm(EDGE_WIDTH_MM)
+def draw_edge(board, rings, layer, width_mm):
+    """Draw the outline rings as segments on `layer`. Returns segment count."""
+    w = mm(width_mm)
     nseg = 0
     for ring in rings:
         for pts in [ring["exterior"]] + ring.get("holes", []):
@@ -97,9 +105,22 @@ def draw_edge(board, rings):
                 seg = pcbnew.PCB_SHAPE(board)
                 seg.SetShape(pcbnew.SHAPE_T_SEGMENT)
                 seg.SetStart(vec(a[0], a[1])); seg.SetEnd(vec(b[0], b[1]))
-                seg.SetLayer(pcbnew.Edge_Cuts); seg.SetWidth(w)
+                seg.SetLayer(layer); seg.SetWidth(w)
                 board.Add(seg); nseg += 1
     return nseg
+
+
+def draw_outline_layers(board):
+    """Clear + redraw the outline on Edge.Cuts (+ F.SilkS if DRAW_SILK).
+    Same rings (incl. leads + square head). Returns (edge_segs, silk_segs)."""
+    layers = {pcbnew.Edge_Cuts} | ({pcbnew.F_SilkS} if DRAW_SILK else set())
+    if CLEAR_EDGE_CUTS_FIRST:
+        clear_outline(board, layers)
+    with open(OUTLINE_JSON) as fh:
+        rings = json.load(fh)["rings"]
+    ne = draw_edge(board, rings, pcbnew.Edge_Cuts, EDGE_WIDTH_MM)
+    ns = draw_edge(board, rings, pcbnew.F_SilkS, SILK_WIDTH_MM) if DRAW_SILK else 0
+    return ne, ns
 
 
 def place_tab(board):
@@ -152,8 +173,17 @@ def place_tab(board):
 
 def run(board=None):
     board = board or pcbnew.GetBoard()
+
+    # ── EDGE_ONLY: redraw outline only (Edge.Cuts + F.SilkS), never touch C/D/J ─
+    if EDGE_ONLY:
+        print(f"=== place_fpc cassette {CID}: EDGE_ONLY (C/D/J 不動) ===")
+        ne, ns = draw_outline_layers(board)
+        pcbnew.Refresh()
+        print(f"  ✓ 外形のみ再描画: Edge.Cuts={ne}  F.SilkS={ns}(C/D/J 不動)")
+        return
+
     leds = load_leds(CSV)
-    print(f"=== move_fpc cassette {CID}: {len(leds)} positions ===")
+    print(f"=== place_fpc cassette {CID}: {len(leds)} positions ===")
 
     nled = ncap = miss = 0
     for i, (order, x, y) in enumerate(leds):
@@ -166,12 +196,9 @@ def run(board=None):
                          to_back=CAP_TO_BACK)
             ncap += ok; miss += (not ok)
 
-    nseg = 0
+    nseg = nsilk = 0
     if DRAW_EDGE_CUTS:
-        if CLEAR_EDGE_CUTS_FIRST:
-            clear_edge_cuts(board)
-        with open(OUTLINE_JSON) as fh:     # includes the leads (strip + square head)
-            nseg = draw_edge(board, json.load(fh)["rings"])
+        nseg, nsilk = draw_outline_layers(board)   # Edge.Cuts (+ F.SilkS)
 
     ntab = 0
     if PLACE_TAB:
@@ -179,7 +206,7 @@ def run(board=None):
 
     pcbnew.Refresh()
     print(f"  moved D={nled} C={ncap} headers={ntab}  (not found: {miss})")
-    print(f"  Edge.Cuts segs={nseg} (skeleton + 2 leads)")
+    print(f"  Edge.Cuts segs={nseg}  F.SilkS segs={nsilk} (skeleton + 2 leads)")
     print("  ✓ 既存 footprint をネット保持のまま移動+回転(LED1=原点)")
     print("  次: DIN/DOUT/電源を J1/J2 へ配線 → DRC")
 
