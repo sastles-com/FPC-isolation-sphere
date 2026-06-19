@@ -255,20 +255,52 @@ def path_unfold(V, F, chain):
     return centres, polys
 
 
-# ── Distance-preserving flattening (MDS) ──────────────────────────────────
+# ── Flattening: POLYHEDRAL NET unfold (chosen) vs MDS (kept for reference) ──
 #
-# A half-gore is NON-developable (it encloses ~54° of Gaussian curvature), so
-# the chain-hinge unfold above does NOT conform to the shell — it dumps all the
-# curvature into one accumulating "curl" (max island-pair error ~15 mm; the old
-# 0.26 % figure only measured chain-ADJACENT islands and was misleading).
-# Classical MDS instead spreads the unavoidable distortion over the whole patch
-# (mean ~0.5 mm, max ~3.6 mm) and is then rigidly aligned to the OUTWARD
-# tangent-plane view so the flat pattern has the correct rotation AND handedness
-# (no mirror → LEDs end up on the right face).
+# The cassette inner surface is a POLYHEDRON of near-flat hex faces, so the chain
+# can be unfolded by hinging each face flat about the shared edge: bridge (chain-
+# adjacent) lengths are preserved EXACTLY — the FPC always reaches its holes.
+# A half-gore is NON-developable (~54° Gaussian curvature), so that curvature has
+# to go somewhere: the net "curls", i.e. NON-adjacent islands drift.  That drift
+# is harmless as long as no two islands overlap, so we pick the 一筆書き whose
+# unfold is overlap-free (see search in output/fpc_cand*_c0.csv).
+#
+# Classical MDS (kept below for comparison) does the opposite: it spreads the
+# distortion over all pairs but FORESHORTENS every bridge ~5 % (orthographic-
+# shadow behaviour) — physically the FPC then comes up short and cannot be placed
+# (measured: 56/79 bridges short, worst 1.5 mm, chain −5.2 %).  Hence polyhedral.
+
+def _align_outward(X, P, anchor_idx):
+    """Rigidly map 2-D coords X (N×2) onto the OUTWARD tangent-plane view of the
+    3-D centres P — rotation + reflection (Procrustes) so handedness is correct
+    (LEDs face out, no mirror) — then translate so anchor→origin.  Returns a list
+    of complex.  X is treated as rigid, so distances in X are preserved."""
+    c = P.mean(0); n = c / np.linalg.norm(c)               # outward normal
+    e1 = np.cross(n, np.array([0.0, 0.0, 1.0]))
+    if np.linalg.norm(e1) < 1e-6:
+        e1 = np.array([1.0, 0.0, 0.0])
+    e1 /= np.linalg.norm(e1); e2 = np.cross(n, e1)         # (e1,e2,n) right-handed
+    S = np.column_stack([(P - c) @ e1, (P - c) @ e2])      # correct-handed view
+    U, _, Vt = np.linalg.svd(S.T @ X)                       # Procrustes (reflection ok)
+    Xo = X @ (U @ Vt).T
+    Z = [complex(float(x), float(y)) for x, y in Xo]
+    o = Z[anchor_idx]
+    return [z - o for z in Z]
+
+
+def polyhedral_flatten(V, F, chain, anchor_idx=0):
+    """Flatten via polyhedral net unfold (bridge lengths exact), oriented to the
+    outward view, anchor→origin.  The chosen overlap-free chain keeps the net's
+    unavoidable curl from self-intersecting."""
+    centres_raw, _ = path_unfold(V, F, chain)
+    X = np.array([[z.real, z.imag] for z in centres_raw])
+    P = np.asarray([centroid(V, F[fi]) for fi in chain], float)
+    return _align_outward(X, P, anchor_idx)
+
 
 def mds_flatten(C3, anchor_idx=0):
-    """Flatten island 3-D centres (N×3) to 2-D complex coords minimising
-    pairwise-distance distortion, oriented to the outward view, anchor→origin."""
+    """[reference / superseded by polyhedral_flatten]  Classical-MDS flattening:
+    minimises all-pair distance distortion but foreshortens bridges ~5 %."""
     P = np.asarray(C3, float); N = len(P)
     D = np.linalg.norm(P[:, None, :] - P[None, :, :], axis=2)
     J = np.eye(N) - np.ones((N, N)) / N
@@ -276,20 +308,7 @@ def mds_flatten(C3, anchor_idx=0):
     w, vec = np.linalg.eigh(B)
     idx = np.argsort(w)[::-1][:2]
     X = vec[:, idx] * np.sqrt(np.maximum(w[idx], 0.0))      # N×2 raw MDS
-
-    # orientation/handedness reference: orthographic shadow seen from OUTSIDE
-    c = P.mean(0); n = c / np.linalg.norm(c)               # outward normal
-    e1 = np.cross(n, np.array([0.0, 0.0, 1.0]))
-    if np.linalg.norm(e1) < 1e-6:
-        e1 = np.array([1.0, 0.0, 0.0])
-    e1 /= np.linalg.norm(e1); e2 = np.cross(n, e1)         # (e1,e2,n) right-handed
-    S = np.column_stack([(P - c) @ e1, (P - c) @ e2])      # correct-handed view
-
-    U, _, Vt = np.linalg.svd(S.T @ X)                       # Procrustes (reflection ok)
-    Xo = X @ (U @ Vt).T                                     # align MDS → shadow
-    Z = [complex(float(x), float(y)) for x, y in Xo]
-    o = Z[anchor_idx]
-    return [z - o for z in Z]
+    return _align_outward(X, P, anchor_idx)
 
 
 # ── inner_deck tab fingers (fold-out 3-pad connectors at DIN & DOUT) ──────
@@ -543,19 +562,23 @@ def main() -> None:
     print("  ✓ all bridges face-adjacent" if not non_adj
           else f"  ⚠ {len(non_adj)} non-adjacent step(s)")
 
-    # 4 ── Flatten (distance-preserving MDS; half-gore is NON-developable) ──
+    # 4 ── Flatten (polyhedral net unfold; bridges exact, half-gore NON-developable) ─
     C3 = [fi_to[fidx]['c'] for fidx in chain]
-    centres = mds_flatten(C3)                       # MDS gives island centres only
+    centres = polyhedral_flatten(V, F, chain)       # island centres, bridges exact
 
-    # distortion report: ALL island-pair distances flat vs 3D (the real metric)
+    # report the metric that actually decides placement: BRIDGE (chain-adjacent)
+    # lengths flat vs on-shell geodesic.  Polyhedral unfold keeps these (MDS used
+    # to foreshorten them ~5 %, so the FPC came up short of its holes).
     P3 = np.asarray(C3, float)
-    D3 = np.linalg.norm(P3[:, None, :] - P3[None, :, :], axis=2)
-    P2 = np.array([[z.real, z.imag] for z in centres])
-    D2 = np.linalg.norm(P2[:, None, :] - P2[None, :, :], axis=2)
-    iu = np.triu_indices(len(chain), 1)
-    ad = np.abs(D2 - D3)[iu]
-    print(f"  MDS flatten: all-pair dist err mean {ad.mean():.2f}mm  max {ad.max():.2f}mm"
-          f"  ({(ad/np.maximum(D3[iu],1e-9)).mean()*100:.1f}% mean)")
+    R3 = float(np.linalg.norm(P3, axis=1).mean())
+    def _geo(a, b):
+        u = a / np.linalg.norm(a); v = b / np.linalg.norm(b)
+        return R3 * math.acos(max(-1.0, min(1.0, float(u @ v))))
+    short = [(_geo(P3[i], P3[i + 1]) - abs(centres[i + 1] - centres[i]))
+             for i in range(len(chain) - 1)]
+    short = [s for s in short if s > 0.05]
+    print(f"  polyhedral unfold: bridges short of geodesic {len(short)}/{len(chain)-1}"
+          f"  (worst {max(short, default=0.0):.2f}mm)")
     flat_d = [abs(centres[i + 1] - centres[i]) for i in range(len(chain) - 1)]
     med = float(np.median(flat_d))
     mind = min((abs(centres[i] - centres[j]) for i in range(len(centres))
@@ -639,9 +662,10 @@ def main() -> None:
                     color='white', zorder=7)
 
     ax.set_aspect('equal'); ax.autoscale_view()
-    ax.set_title(f'Cassette {cid} — MDS flatten + {STRIP_LEN}mm flex leads\n'
+    ax.set_title(f'Cassette {cid} — polyhedral unfold + {STRIP_LEN}mm flex leads\n'
                  f'{len(chain)} hex · {method}\n'
-                 f'all-pair dist err mean {ad.mean():.2f}mm max {ad.max():.2f}mm',
+                 f'bridges short of geodesic {len(short)}/{len(chain)-1} '
+                 f'(worst {max(short, default=0.0):.2f}mm) · min gap {mind:.2f}mm',
                  fontsize=9)
     ax.legend(loc='upper right', fontsize=8); ax.grid(True, alpha=0.25)
     plt.tight_layout()
