@@ -39,7 +39,7 @@
         "other_text_thickness": 0.15,
         "other_text_upright": false,
         "pads": {
-          "drill": 1.0,
+          "drill": 1.1,
           "height": 1.7,
           "width": 1.7
         },
@@ -504,7 +504,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "power-IP2326-MP1584-FPC.kicad_pro",
+    "filename": "power-IP2326-MP1584-FPC-03.kicad_pro",
     "version": 3
   },
   "net_settings": {
@@ -659,8 +659,8 @@
     "subpart_id_separator": 0,
     "top_level_sheets": [
       {
-        "filename": "power-IP2326-MP1584-FPC.kicad_sch",
-        "name": "power-IP2326-MP1584-FPC",
+        "filename": "power-IP2326-MP1584-FPC-03.kicad_sch",
+        "name": "power-IP2326-MP1584-FPC-03",
         "uuid": "fcea95cf-f0a7-4deb-a144-a59afca0b3cf"
       }
     ],
@@ -670,7 +670,7 @@
   "sheets": [
     [
       "fcea95cf-f0a7-4deb-a144-a59afca0b3cf",
-      "power-IP2326-MP1584-FPC"
+      "power-IP2326-MP1584-FPC-03"
     ]
   ],
   "text_variables": {},
