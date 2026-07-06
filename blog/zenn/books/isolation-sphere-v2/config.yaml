@@ -1,0 +1,15 @@
+# Zenn Book 雛形。公開時はZenn連携リポジトリの books/isolation-sphere-v2/ へ置く。
+# 章本文は同ディレクトリに <chapter-slug>.md（frontmatterは title のみ、本文先頭の # 見出しは不要）。
+title: "Isolation Sphere V2 決定版 —— 握れる「光る球体」の作り方"
+summary: "コンタクトジャグリングのクリスタルボールを光らせたい——直径100mm・800個のLEDを敷いた球体ガジェット『Isolation Sphere』を、接着剤ゼロ・カセット交換式・骨組みFPCで作る決定版の設計記録。Goldberg多面体の生成からKiCad・ESP32ファームまで。"
+topics: ["電子工作", "3DCAD", "ESP32", "KiCad", "Blender"]
+published: false
+price: 0
+# 表示順（章スラッグ。各 <slug>.md を同階層に置く）
+chapters:
+  - shell-cad-design     # 01 シェル設計（blog/01-shell-cad-design.md ← 草稿あり）
+  - fpc-design           # 02 骨組みFPC（blog/02-fpc-kicad-design.md）
+  - assembly-mechanism   # 03 組立機構（blog/03-assembly-mechanism.md）
+  - power-charging       # 04 電源と充電（blog/04-power-charging.md）
+  - firmware-esp32       # 05 ファームウェア（blog/05-firmware-esp32.md）
+  - server-webui         # 06 サーバー&WebUI（blog/06-server-webui.md）
