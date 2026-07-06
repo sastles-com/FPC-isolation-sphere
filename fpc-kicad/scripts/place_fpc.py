@@ -36,6 +36,7 @@ HEADER_ANCHOR_PIN = "2"   # ★ 3 ピンの真ん中(pin2)を配置原点にす�
 
 # ★ EDGE_ONLY=True: C/D/J を一切動かさず Edge.Cuts だけ再描画(外形だけ更新したい時)
 EDGE_ONLY = True
+# EDGE_ONLY = False
 
 MOVE_LED = True
 MOVE_CAP = True
@@ -47,7 +48,7 @@ FP_ANGLE_OFFSET = 0.0     # フットプリント基準向き補正(deg)
 
 DRAW_EDGE_CUTS        = True
 CLEAR_EDGE_CUTS_FIRST = True
-EDGE_WIDTH_MM         = 0.10
+EDGE_WIDTH_MM         = 0.05
 DRAW_SILK             = True    # 外形と同じ線を F.SilkS にも描画(視認/組立ガイド)
 SILK_WIDTH_MM         = 0.1
 # ------------------------------------------------------------------------------

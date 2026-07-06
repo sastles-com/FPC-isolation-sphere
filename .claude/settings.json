@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/Applications/Blender.app/Contents/MacOS/Blender -b shell-cad/output/inner_deck_joint.blend --python-expr 'import bpy,mathutils *)",
+      "Bash(git commit -m ' *)",
+      "Bash(/Applications/Blender.app/Contents/MacOS/Blender -b --python /tmp/test_vcyl.py)",
+      "Bash(python3 -m py_compile fpc-kicad/scripts/place_fpc.py)",
+      "Bash(/Applications/Blender.app/Contents/MacOS/Blender -b --python shell-cad/scripts/blender_goldberg_shell.py)",
+      "Bash(awk '/Reference\" \"J1\"/{f=1} f&&/\\\\\\(pad \"/{p=$2} f&&/pinfunction/{pf=$0} f&&/\\\\\\(net \"/{print p, $0} /Reference\" \"D1\"/{if\\(f\\)exit}' FPC-golderg.kicad_pcb)",
+      "Bash(awk '/Reference\" \"D1\"$|Reference\" \"D1\"\\\\\\)/{f=1} f&&/\\\\\\(at /&&!seen{print \"POS:\",$0; seen=1} f&&/\\\\\\(pad \"/{p=$2} f&&/pinfunction|\\\\\\(net \"/{print p, $0} /Reference\" \"D2\"/{if\\(f\\)exit}' FPC-golderg.kicad_pcb)",
+      "Bash(sed -n '1535,1545p' FPC-golderg.kicad_pcb)",
+      "Bash(sed -n '5235,5245p' FPC-golderg.kicad_pcb)",
+      "Bash(sed -n '15285,15295p' FPC-golderg.kicad_pcb)",
+      "Bash(awk -F, 'NR==2||$1==0{print}' output/fpc_unfold_c0.csv)",
+      "Bash(awk -F, 'NR==1{for\\(i=1;i<=NF;i++\\)h[i]=$i} $0 ~ /True/{print $1, $2}' output/fpc_unfold_c0.csv)",
+      "Bash(awk '/\\\\\\(layers/{f=1} f&&/\\\\.Cu/{print} /\\\\\\(setup/{exit}' FPC-golderg.kicad_pcb)",
+      "Bash(awk 'BEGIN{RS=\"\\(segment\";FS=\"\\\\n\"} /6\\\\.25|6\\\\.2[0-9]|-12\\\\.7|-10\\\\.2|-7\\\\.6|-5\\\\.1|-2\\\\.5/{ *)",
+      "Bash(awk -v 'net=\\(net \"__TRACKED_VAR__\"\\)' 'BEGIN{RS=\"\\(segment\";FS=\"\\\\n\"} {for\\(i=1;i<=NF;i++\\) if\\($i ~ /\\\\\\(net /\\){g=$i}} index\\($0,net\\)&&/start/{cnt++} END{print cnt+0}' FPC-golderg.kicad_pcb)"
+    ]
+  }
+}

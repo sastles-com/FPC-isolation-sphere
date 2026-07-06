@@ -34,4 +34,16 @@ node_modules/
 *.kicad_pcb-bak
 *.kicad_sch-bak
 *.kicad_prl
-fp-info-cache
+fp-info-cache*
+tmp*.rpt
+*.lck
+
+# VSCode Local History extension (nested git repos)
+.history/
+
+# Heavy 3D experiment outputs (>50MB, exceed GitHub limits)
+shell-cad/voronoi/*.stl
+shell-cad/voronoi/*.blend
+
+# macOS Finder alias (accidental)
+kiban/FPC-golderg

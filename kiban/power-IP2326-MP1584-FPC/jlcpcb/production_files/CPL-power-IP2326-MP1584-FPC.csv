@@ -1,0 +1,24 @@
+Designator,Val,Package,Mid X,Mid Y,Rotation,Layer
+C1,100uF,CP_EIA-3528-12_Kemet-T,68.5,-60.75,180.0,top
+C2,0.1uF,C_0603_1608Metric,67.0,-57.25,-90.0,top
+C3,22uF,C_0805_2012Metric,69.0,-57.25,-90.0,top
+C4,0.1uF,C_0603_1608Metric,40.475,-59.25,0.0,top
+C5,22uF,C_0805_2012Metric,40.5,-61.2,0.0,top
+C6,22uF,C_0805_2012Metric,36.5,-60.45,90.0,top
+C7,100uF,CP_EIA-3528-12_Kemet-T,40.25,-64.2,180.0,top
+C8,0.1uF,C_0603_1608Metric,40.45,-40.39,90.0,top
+D1,D_Schottky_Small,Vishay_SMPA,62.81,-34.4,180.0,top
+FB1,FerriteBead,L_0603_1608Metric,56.5,-54.0,180.0,bottom
+J1,BATTERY,PinHeader_1x03_P2.00mm_Vertical,47.5,-34.4,90.0,bottom
+J14,CHARGE,PinHeader_1x02_P2.00mm_Vertical,57.0,-34.4,-90.0,top
+J3,BATTERY,PinHeader_1x02_P2.00mm_Vertical,67.75,-66.25,180.0,bottom
+J4,DIRECT,PinHeader_1x02_P2.00mm_Vertical,34.0,-64.45,180.0,bottom
+J7,VOUT,PinHeader_1x06_P2.54mm_Vertical,29.66,-51.7,0.0,top
+J8,VIN,PinHeader_1x06_P2.54mm_Vertical,74.74,-51.7,0.0,top
+J9,OUTPUT,PinHeader_1x02_P2.00mm_Vertical,36.0,-51.2,180.0,bottom
+Q2,AO3401A,SOT-23,36.2625,-44.4,270.0,top
+R4,10kΩ,R_0603_1608Metric,33.85,-40.39,-90.0,top
+R5,47kΩ,R_0603_1608Metric,39.8,-44.375,-90.0,top
+U1,MAX16054,TSOT-23-6_HandSoldering,37.15,-40.14,0.0,top
+U2,TP2326,TS2326,56.443633,-45.08266,0.0,top
+U3,MP1584EN,MP1584EN,54.090608,-62.895133,180.0,top
