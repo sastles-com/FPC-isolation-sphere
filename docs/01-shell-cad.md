@@ -50,9 +50,9 @@
 
 - Q1: **赤道部の六角形 90 個の処理方式** — 4 案あり (A: 元中心固定でトリム / B: トリム後重心 / C: 90 個捨て / D: 上下 2 分割)。**Blender で目視してから決める** ([`../shell-cad/output/goldberg_t81.blend`](../shell-cad/output/) で赤強調済)
 - Q2 細目: **ラッパ穴の bevel 量、角錐 → 円錐への滑らかな fillet を入れるか**
-- Q4: **LED 座標 CSV のスキーマ** (`shared/led_positions.csv`):
-  - 必須項目候補: `face_id`, `cassette_id (0..9)`, `serial_index (0..809)`, `x, y, z` (球面), `normal_x, normal_y, normal_z`, `hemisphere (N/S)`, `face_kind (pent/hex)`
-  - V1 の `tri_hexagon_centroids.csv` 相当を拡張する形になる
+- ~~Q4: **LED 座標 CSV のスキーマ** (`shared/led_positions.csv`)~~ → **確定 (2026-06-15)**:
+  `FaceID, strip, strip_num, x, y, z` の簡素スキーマで決定 (詳細は [§LED 配置データ](#led-配置データ--led-placement-csv-sharedled_positionscsv))。
+  `normal_*` / `flat_*` / `face_kind` は当面不要 (必要になれば拡張)。
 
 ## References
 
@@ -205,18 +205,32 @@
 - 北極キャップ: ねじゼロ・端子ゼロで最も単純なスナップ蓋
 - 南極キャップ: スナップ + キャップ内に磁石ホール + 端子パッド窓 (中央ねじなし)
 
-### LED 配置データ / LED placement CSV
+### LED 配置データ / LED placement CSV (`shared/led_positions.csv`)
 
-全 LED が共通 FPC 上 (極専用 PCB 廃止) なので、`shared/led_positions.csv` のスキーマは簡素:
+全 LED が共通 FPC 上 (極専用 PCB 廃止) なので、producer→consumer 受け渡し用の
+`shared/led_positions.csv` は **firmware アドレッシング志向の簡素スキーマ** で確定
+(2026-06-15)。**800 行 = 5 strip × 160**。
 
-| 列名 | 値 | 説明 |
-| --- | --- | --- |
-| `cassette_id` | 0..9 | カセット (北 0-4 / 南 5-9) |
-| `chain_seq` | 0..79 | カセット内の一筆書き順 (DIN=0, DOUT=79) |
-| `is_screw_hole` | bool | **非極ペンタゴン位置のみ true** (M2.5 クランプねじ穴、LED 載らず) |
-| 他列 | — | `face_id`, `x, y, z`, `normal_*`, `flat_x, flat_y` (展開 2D), `hemisphere`, `face_kind` |
+| 列名 | 型 | 値 | 説明 |
+| --- | --- | --- | --- |
+| `FaceID` | int | 0..811 | Goldberg G(9,0) の面インデックス (812 面中。pent 12 含む空間 ID) |
+| `strip` | int | 0..4 | データストリップ = 経度スライス。**ESP32 が 5 並列駆動** |
+| `strip_num` | int | 0..159 | ストリップ内位置。実配線順そのまま |
+| `x, y, z` | float | mm | LED の球面 3D 座標 (内球 r=45mm / φ90、`fpc_unfold_c*` と同一フレーム) |
 
-`board_kind` 列は不要 (全 LED 共通 FPC)。
+- `strip = cassette_id % 5` (経度スライス)。
+- `strip_num` の意味 (赤道マザーリング `N_DOUT→S_DIN` クロスを内包した実チェーン順):
+  - `0..79`   = **北**カセット (cassette_id = `strip`) の一筆書き順 (DIN=0 → DOUT=79)
+  - `80..159` = **南**カセット (cassette_id = `strip+5`) の一筆書き順 (DIN=80 → DOUT=159 終端)
+  - 旧スキーマ案との対応: `chain_seq = strip_num % 80`、`cassette_id = strip + (5 if strip_num>=80 else 0)`。
+- **生成原理**: 共通 Gerber ×10・proper 回転で合同 (CLAUDE.md §2.4) に忠実に、基準カセット
+  c0(北)/c5(南) のチェーンを **Rz(72°·s)** で回転コピー。Goldberg は Z 軸 72° 対称なので
+  回転後の面重心は別の面重心に厳密一致 (残差 ~8e-5mm) し FaceID も正しく引ける。
+- **生成コマンド**: `uv run python shell-cad/scripts/export_led_positions.py -o shared/led_positions.csv`
+  (基準 `output/fpc_unfold_c{0,5}.csv` を consume。再生成可能)。
+
+`normal_*` / `flat_x,flat_y` / `is_screw_hole` / `face_kind` 列は当面不要 (必要になれば拡張)。
+`board_kind` 列も不要 (全 LED 共通 FPC)。
 
 **LED 総数: 800** (= 共通 FPC hex 80 × 10。ペンタゴン 12 個は全て LED 無し)
 

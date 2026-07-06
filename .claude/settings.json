@@ -15,7 +15,12 @@
       "Bash(awk -F, 'NR==1{for\\(i=1;i<=NF;i++\\)h[i]=$i} $0 ~ /True/{print $1, $2}' output/fpc_unfold_c0.csv)",
       "Bash(awk '/\\\\\\(layers/{f=1} f&&/\\\\.Cu/{print} /\\\\\\(setup/{exit}' FPC-golderg.kicad_pcb)",
       "Bash(awk 'BEGIN{RS=\"\\(segment\";FS=\"\\\\n\"} /6\\\\.25|6\\\\.2[0-9]|-12\\\\.7|-10\\\\.2|-7\\\\.6|-5\\\\.1|-2\\\\.5/{ *)",
-      "Bash(awk -v 'net=\\(net \"__TRACKED_VAR__\"\\)' 'BEGIN{RS=\"\\(segment\";FS=\"\\\\n\"} {for\\(i=1;i<=NF;i++\\) if\\($i ~ /\\\\\\(net /\\){g=$i}} index\\($0,net\\)&&/start/{cnt++} END{print cnt+0}' FPC-golderg.kicad_pcb)"
+      "Bash(awk -v 'net=\\(net \"__TRACKED_VAR__\"\\)' 'BEGIN{RS=\"\\(segment\";FS=\"\\\\n\"} {for\\(i=1;i<=NF;i++\\) if\\($i ~ /\\\\\\(net /\\){g=$i}} index\\($0,net\\)&&/start/{cnt++} END{print cnt+0}' FPC-golderg.kicad_pcb)",
+      "Bash(git -C /Users/katano/work/FPC-isolation-sphere status --short -- .claude/ output/)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(git -C /Users/katano/work/FPC-isolation-sphere show --stat HEAD)",
+      "Bash(git -C /Users/katano/work/FPC-isolation-sphere log --oneline -- output/.gitignore)",
+      "Bash(git commit *)"
     ]
   }
 }
