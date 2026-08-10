@@ -372,7 +372,7 @@ CLAUDE.md は索引役として下表だけを維持する。
 | 01 | shell-cad | [`docs/01-shell-cad.md`](docs/01-shell-cad.md) | wip | 外殻 (T=81 ゴールドバーグ) + 球体コア + 短 pillar × 2 + キャップ + クランプ機構 |
 | 02 | fpc-kicad | [`docs/02-fpc-kicad.md`](docs/02-fpc-kicad.md) | draft | 共通骨組み FPC × 10 (全 hex 80 LED、一筆書き + polyhedral 展開、極専用 PCB 廃止) |
 | 03 | power-charging | [`docs/03-power-charging.md`](docs/03-power-charging.md) | draft | 南極磁気端子 (Φ4 mm 2 極) + LiPo 2000×2 + AWG26 配線。充電 IC は別プロジェクト |
-| — | power-2s-02 | [`kiban/resized/power-2s-02/CLAUDE.md`](kiban/resized/power-2s-02/CLAUDE.md) | wip | 2S 電源基板: IP2326/MP1584 モジュールのディスクリート化 (40×40, 4層, JLCPCB)。**自己完結型** — 同フォルダの CLAUDE.md + HANDOFF.md + docs/ を参照 |
+| — | power-2s-02 | **別リポジトリ** → [`sastles-com/power-2S-02`](https://github.com/sastles-com/power-2S-02) | wip | 2S 電源基板: IP2326/MP1584 のディスクリート化 (40×40, 4層, EasyEDA Pro, JLCPCB)。**本モノレポには置かない** (2026-08-10 に単独リポジトリを正本に確定し、モノレポ側のコピーを削除)。仕様・作業状態は当該リポジトリの CLAUDE.md / HANDOFF.md / docs/ を参照 |
 | — | — | — | — | _(未作成。下記 §8.2 のルールで増やしていく)_ |
 
 予定している小プロジェクト (まだファイル未作成):
